@@ -1,4 +1,4 @@
-<p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/ATTiny10IDE Screenshot.png"></p>
+<p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/resources/images/ATTiny10IDE%20Screenshot.png"></p>
 
 # ATTiny10IDE
 ATTiny10IDE is a simple, GNU-based IDE I wrote to simplify writing code for the ATTiny10 Series Microcontrollers using CPP and Assembler.
