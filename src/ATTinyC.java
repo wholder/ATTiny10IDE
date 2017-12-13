@@ -78,7 +78,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     fc.setAcceptAllFileFilterUsed(true);
     fc.setMultiSelectionEnabled(false);
     fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
-    cFile = new File(prefs.get("default.dir", "/"));
   }
 
   private void selectTab (Tab tab) {
@@ -122,14 +121,13 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         codePane.setForeground(Color.black);
         directHex = false;
         compiled = false;
+        cFile = null;
       }
     });
     fileMenu.add(mItem = new JMenuItem("Open"));
     mItem.setAccelerator(OPEN_KEY);
     mItem.addActionListener(e -> {
-      if (cFile != null) {
-        fc.setSelectedFile(cFile);
-      }
+      fc.setSelectedFile(new File(prefs.get("default.dir", "/")));
       if (!codeDirty  ||  discardChanges()) {
         if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
           try {
@@ -169,9 +167,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     });
     fileMenu.add(mItem = new JMenuItem("Save As..."));
     mItem.addActionListener(e -> {
-      if (cFile != null) {
-        fc.setSelectedFile(cFile);
-      }
+      fc.setSelectedFile(new File(prefs.get("default.dir", "/")));
       if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
         File sFile = fc.getSelectedFile();
         prefs.put("default.extension", ((FileNameExtensionFilter) fc.getFileFilter()).getExtensions()[0]);
@@ -207,44 +203,48 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     actions.add(mItem = new JMenuItem("Build"));
     mItem.setAccelerator(BUILD_KEY);
     mItem.addActionListener(e -> {
-      String fName = cFile.getName().toLowerCase();
-      if (fName.endsWith(".asm")) {
-        ATTiny10Assembler asm = new ATTiny10Assembler();
-        asm.assemble(codePane.getText());
-        listPane.setText(asm.getListing());
-        listPane.setForeground(Color.black);
-        hexPane.setText(asm.getHex());
-        hexPane.setForeground(Color.black);
-        compiled = true;
-      } else {
-        Thread cThread = new Thread(() -> {
-          try {
-            boolean doAsm = fName.endsWith(".s");
-            Map<String, String> ret = compiler.compile(codePane.getText(), tmpExe, tmpDir, doAsm);
-            if (ret.containsKey("ERR")) {
-              listPane.setText(ret.get("ERR"));
-              listPane.setForeground(Color.red);
-              compiled = false;
-            } else {
-              listPane.setText(ret.get("INFO") + "\n\n" + ret.get("SIZE") + ret.get("LST"));
-              listPane.setForeground(Color.black);
-              hexPane.setText(ret.get("HEX"));
-              hexPane.setForeground(Color.black);
-              chip = ret.get("CHIP");
-              compiled = true;
+      if (cFile != null) {
+        String fName = cFile.getName().toLowerCase();
+        if (fName.endsWith(".asm")) {
+          ATTiny10Assembler asm = new ATTiny10Assembler();
+          asm.assemble(codePane.getText());
+          listPane.setText(asm.getListing());
+          listPane.setForeground(Color.black);
+          hexPane.setText(asm.getHex());
+          hexPane.setForeground(Color.black);
+          compiled = true;
+        } else {
+          Thread cThread = new Thread(() -> {
+            try {
+              boolean doAsm = fName.endsWith(".s");
+              Map<String, String> ret = compiler.compile(codePane.getText(), tmpExe, tmpDir, doAsm);
+              if (ret.containsKey("ERR")) {
+                listPane.setText(ret.get("ERR"));
+                listPane.setForeground(Color.red);
+                compiled = false;
+              } else {
+                listPane.setText(ret.get("INFO") + "\n\n" + ret.get("SIZE") + ret.get("LST"));
+                listPane.setForeground(Color.black);
+                hexPane.setText(ret.get("HEX"));
+                hexPane.setForeground(Color.black);
+                chip = ret.get("CHIP");
+                compiled = true;
+              }
+            } catch (Exception ex) {
+              infoPane.append("Stack Trace:\n");
+              ByteArrayOutputStream bOut = new ByteArrayOutputStream();
+              PrintStream pOut = new PrintStream(bOut);
+              ex.printStackTrace(pOut);
+              pOut.close();
+              infoPane.append(bOut.toString() + "\n");
             }
-          } catch (Exception ex) {
-            infoPane.append("Stack Trace:\n");
-            ByteArrayOutputStream bOut = new ByteArrayOutputStream();
-            PrintStream pOut = new PrintStream(bOut);
-            ex.printStackTrace(pOut);
-            pOut.close();
-            infoPane.append(bOut.toString() + "\n");
-          }
-        });
-        cThread.start();
+          });
+          cThread.start();
+        }
+        selectTab(Tab.LIST);
+      } else {
+        showErrorDialog("Please save file first!");
       }
-      selectTab(Tab.LIST);
     });
     actions.add(mItem = new JMenuItem("Program Device"));
     mItem.setAccelerator(PROG_KEY);

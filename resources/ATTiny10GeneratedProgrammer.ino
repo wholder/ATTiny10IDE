@@ -21,7 +21,7 @@ unsigned char       fuse = 0x0/*[FUSE]*/;
 #define  TPICLK    3  // Pin 3 on ATtiny10
 #define  TPIDAT    4  // Pin 1 on ATtiny10
 #define  RESET     5  // Pin 6 on ATtiny10
-#define  GND       6  // Pin 3 on ATtiny10
+#define  GND       6  // Pin 2 on ATtiny10
 
 // Define IO Registers
 #define  NVMCMD  0x33
@@ -389,18 +389,18 @@ void writeFlash (unsigned char fuseByte) {
 }
 
 void printInstructions () {
-  int ardPins[] = {2, 3, 4, 5};
-  int tnyPins[] = {5, 3, 1, 6};
+  int ardPins[] = {2, 3, 4, 5, 6};
+  int tnyPins[] = {5, 3, 1, 6, 2};
   Serial.print("Programmer for: ");
   Serial.println(progName);
   Serial.println("Connect:");
-  for (int ii = 0; ii < 4; ii++) {
+  for (int ii = 0; ii < 5; ii++) {
     Serial.print("  Arduino pin D");
     Serial.print(ardPins[ii], DEC);
-    Serial.print(" to ATtiny pin ");
+    Serial.print(" to ATtiny10 pin ");
     Serial.println(tnyPins[ii]);
   }
-  Serial.println("  Gnd to ATtiny pin 2\nCommands:\n  P - Program ATtiny\n  I - Identify ATtiny");
+  Serial.println("Commands:\n  P - Program ATtiny10\n  I - Identify ATtiny10");
 }
 
 unsigned int newDigit (unsigned int cVal, unsigned char digit) {
@@ -546,5 +546,4 @@ void loop () {
     }
   }
 }
-
 
