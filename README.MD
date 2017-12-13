@@ -1,4 +1,5 @@
-<p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/resources/images/ATTiny10IDE%20Screenshot.png"></p>
+<p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/ATTiny10IDE%20Screenshot.png"></p>
+
 
 # ATTiny10IDE
 ATTiny10IDE is a simple, GNU-based IDE I wrote to simplify writing code for the ATTiny10 Series Microcontrollers using CPP and Assembler.  It's a greatly expanded and updated version of a project I started back in 2014.  [Please read this article for some additional details](https://sites.google.com/site/wayneholder/attiny10-c-ide-and-improved-device-programmer).  
@@ -43,6 +44,9 @@ You can use this Sketch to program as many ATTiny10s as needed, but you can also
 5. Connect the Arduino to the ATTiny10 using the same connections shown above.
 5. Select "**`Actions->Device Signature`**" to verify the ATTiny10 is properly connected.
 6. Select "**`Actions->Program Device`**" to upload and program the code into the ATtiny10.
+
+<p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/Arduino Programmer.jpg"></p>
+
 ## Credits
 - [Java Simple Serial Connector 2.8.0](https://github.com/scream3r/java-simple-serial-connector) "**JSSC**" 
 - [IntelliJ IDEA from JetBrains](https://www.jetbrains.com/idea/) (my favorite development environment for Java coding. Thanks JetBrains!)
