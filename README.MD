@@ -45,7 +45,7 @@ You can use this Sketch to program as many ATTiny10s as needed, but you can also
 5. Select "**`Actions->Device Signature`**" to verify the ATTiny10 is properly connected.
 6. Select "**`Actions->Program Device`**" to upload and program the code into the ATtiny10.
 
-<p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/Arduino Programmer.jpg"></p>
+<p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/Arduino%20Programmer.JPG"></p>
 
 ## Credits
 - [Java Simple Serial Connector 2.8.0](https://github.com/scream3r/java-simple-serial-connector) "**JSSC**" 
