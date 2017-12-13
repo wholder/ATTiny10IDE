@@ -29,7 +29,8 @@ import jssc.SerialNativeInterface;
    *    Make it run on Linux
    *    Switch from CrossPack-AVR toolchain to one extracted from Arduino
    *    Implement Arduino-like I/O functions (pinMode(), analogWrite(), etc.)
-   *    Program abd debug? See: http://www.ruemohr.org/docs/debugwire.html
+   *    Program and debug? See: http://www.ruemohr.org/docs/debugwire.html
+   *    https://github.com/dcwbrown/dwire-debug/blob/master/src/commandline/commandline.c
    */
 
 public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
