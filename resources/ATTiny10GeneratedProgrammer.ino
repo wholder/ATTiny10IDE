@@ -391,8 +391,10 @@ void writeFlash (unsigned char fuseByte) {
 void printInstructions () {
   int ardPins[] = {2, 3, 4, 5, 6};
   int tnyPins[] = {5, 3, 1, 6, 2};
-  Serial.print("Programmer for: ");
-  Serial.println(progName);
+  if (sizeof(program) > 0) {
+    Serial.print("Programmer for: ");
+    Serial.println(progName);
+  }
   Serial.println("Connect:");
   for (int ii = 0; ii < 5; ii++) {
     Serial.print("  Arduino pin D");
@@ -546,4 +548,3 @@ void loop () {
     }
   }
 }
-
