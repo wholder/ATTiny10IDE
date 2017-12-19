@@ -108,11 +108,11 @@ unsigned char getKey () {
 }
 
 int main (void) {
-	// Set clock to 8 MHz
-	CCP = 0xD8;			// Unprotect CLKPSR reg
-	CLKPSR = 0x00;	// Divide by 1
-	// Calibrate Oscillator
-	OSCCAL = 0x9A;
+  // Set clock to 8 MHz
+  CCP = 0xD8;			    // Unprotect CLKPSR reg
+  CLKPSR = 0x00;	     // Set Clock Prescaler to Divide by 1
+  // Calibrate Oscillator (use "Action->Calibrate Clock" to get OSCCAL value)
+  OSCCAL = 0x58;
   // set PB2 as output
   DDRB = OUTPIN;
 	// Engage pull up resistor for all input pins

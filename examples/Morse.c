@@ -62,13 +62,13 @@ const char message[] PROGMEM = "FLASHING LIGHT PRIZE ";
 #endif
 
 int main (void) {
-    // Set clock to 8 MHz
-	CCP = 0xD8;			// Unprotect CLKPSR reg
-	CLKPSR = 0x00;	    // Divide by 1
-	// Calibrate Oscillator
-	OSCCAL = 0x58;
-    // set PB0 for output
-    DDRB = (1 << PB0);
+  // Set clock to 8 MHz
+  CCP = 0xD8;			    // Unprotect CLKPSR reg
+  CLKPSR = 0x00;	     // Set Clock Prescaler to Divide by 1
+  // Calibrate Oscillator (use "Action->Calibrate Clock" to get OSCCAL value)
+  OSCCAL = 0x58;
+  // set PB0 for output
+  DDRB = (1 << PB0);
 	// Setup Timer0 overflow interrupt
 	TCCR0A = 0x00;		// normal counter operation
 #if PRE32
@@ -78,9 +78,9 @@ int main (void) {
 #endif
 	TIMSK0 = 0x01;		// enable overflow interrupt
 	sei(); 				// Enable Global Interrupts
-    while (1) {
-		// Wait for interrupt
-    }
+  while (1) {
+    // Wait for interrupt
+  }
 }
 
 ISR (TIM0_OVF_vect) {

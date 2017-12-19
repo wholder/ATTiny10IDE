@@ -41,6 +41,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private static KeyStroke          QUIT_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_Q, cmdMask) ;
   private static KeyStroke          BUILD_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_B, cmdMask) ;
   private static KeyStroke          PROG_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_P, cmdMask) ;
+  private static KeyStroke          VCC_ON_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_V, cmdMask) ;
+  private static KeyStroke          VCC_OFF_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_X, cmdMask) ;
   private static Map<String,String> progProtocol = new HashMap<>();
   private enum                      Tab {SRC(0), LIST(1), HEX(2), PROG(3), INFO(4); final int num; Tab(int num) {this.num = num;}};
   private String                    osName = System.getProperty("os.name").toLowerCase();
@@ -261,6 +263,26 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             showErrorDialog("Serial port not selected!");
           }
         }
+      } catch (Exception ex) {
+        showErrorDialog(ex.getMessage());
+      }
+    });
+    actions.add(mItem = new JMenuItem("Power On"));
+    mItem.setAccelerator(VCC_ON_KEY);
+    mItem.addActionListener(e -> {
+      try {
+        jPort.sendString("V\n");
+
+      } catch (Exception ex) {
+        showErrorDialog(ex.getMessage());
+      }
+    });
+    actions.add(mItem = new JMenuItem("Power Off"));
+    mItem.setAccelerator(VCC_OFF_KEY);
+    mItem.addActionListener(e -> {
+      try {
+        jPort.sendString("X\n");
+
       } catch (Exception ex) {
         showErrorDialog(ex.getMessage());
       }

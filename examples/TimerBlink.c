@@ -10,28 +10,36 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-unsigned char leds = 0x00;
+#define LED_PIN PB2
+#define setPin(PIN) (PORTB |= (1 << PIN))
+#define clrPin(PIN) (PORTB &= ~(1 << PIN))
+
+char led = false;
 
 int main (void) {
   // Set clock to 8 MHz
-  CCP = 0xD8;			// Unprotect CLKPSR reg
-  CLKPSR = 0x00;	    // Divide by 1
-  // Calibrate Oscillator
-  OSCCAL = 0x58;
-  // set PB0 for output
-  DDRB = (1 << PB0);
+  CCP = 0xD8;			     // Unprotect CLKPSR reg
+  CLKPSR = 0x00;	     // Set Clock Prescaler to Divide by 1
+  // Calibrate Oscillator (use "Action->Calibrate Clock" to get OSCCAL value)
+  OSCCAL = 0x69;
+  // set PORTB PB2 for output
+  DDRB = (1 << LED_PIN);
   // Setup Timer0 overflow interrupt
-  TCCR0A = 0x00;		// normal counter operation
-  TCCR0B = 0x03;		// timer clock = 8 MHz / 64
-  TIMSK0 = 0x01;		// enable overflow interrupt
-  sei(); 				// Enable Global Interrupts
+  TCCR0A = 0x00;		  // Normal counter operation
+  TCCR0B = 0x03;		  // Timer clock = 8 MHz / 64 = 125,000 Hz
+  TIMSK0 = 0x01;		  // Enable overflow interrupt
+  sei(); 				      // Enable Global Interrupts
   while (1) {
     // Wait for interrupt
   }
 }
 
+// Timer0 Overflow Interrupt handler (125,000 / 65,536 = Approx 1.907348 Hz)
 ISR (TIM0_OVF_vect) {
-  // Blink PORTD.PB2 (pin 4)
-  leds ^= (1 << PB0);
-  PORTB = leds;
+  // Toggle PORTB Pin PB2 (pin 4) On and Off
+  if (led ^= 1) {
+    setPin(LED_PIN);
+  } else {
+    clrPin(LED_PIN);
+  }
 }

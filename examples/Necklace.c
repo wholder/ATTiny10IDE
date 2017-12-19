@@ -12,17 +12,17 @@
 //           +====+
 //
 // Vectors:
-//		0:						All Resets
-//		1:	INT0_vect			xternal Interrupt Request 0
+//		0:						      All Resets
+//		1:	INT0_vect			  External Interrupt Request 0
 //		2:	PCINT0_vect			Pin Change Interrupt Request 0
-//		3:	TIM0_CAPT_vect		Timer/Counter0 Input Capture
+//		3:	TIM0_CAPT_vect	Timer/Counter0 Input Capture
 //		4:	TIM0_OVF_vect		Timer/Counter0 Overflow
-//		5:	TIM0_COMPA_vect		Timer/Counter0 Compare Match A
-//		6:	TIM0_COMPB_vect		Timer/Counter0 Compare Match B
+//		5:	TIM0_COMPA_vect	Timer/Counter0 Compare Match A
+//		6:	TIM0_COMPB_vect	Timer/Counter0 Compare Match B
 //		7:	ANA_COMP_vect		Analog Comparator
-//		8:	WDT_vect			Watchdog Time-out
-//		9:	VLM_vect			VCC Voltage Level Monitor
-//	   10:	ADC_vect			ADC Conversion Complete
+//		8:	WDT_vect			  Watchdog Time-out
+//		9:	VLM_vect			  VCC Voltage Level Monitor
+//	  10:	ADC_vect			  ADC Conversion Complete
 
 const unsigned char sine[] PROGMEM = {
 		3,   6,   9,  15,  23,  31,  41,  53,  64,  75,  86,  99, 108, 119, 130, 140,

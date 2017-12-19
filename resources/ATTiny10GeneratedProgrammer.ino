@@ -544,6 +544,14 @@ void loop () {
           printSignature();
           printFuses();
           break;
+        case 'V':
+          pinMode(VCC, OUTPUT);
+          digitalWrite(VCC, HIGH);     // VCC on
+          break;
+        case 'X':
+          digitalWrite(VCC, LOW);      // VCC off
+          pinMode(VCC, INPUT);
+          break;
       }
     }
   }
