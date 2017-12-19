@@ -46,8 +46,6 @@ public class CodeEditPane extends JPanel implements DocumentListener {
     tabSize = prefs.getInt("text.tabPane", 4);
     DefaultSyntaxKit.initKit();
     codePane = new JEditorPane();
-    doc = codePane.getDocument();
-    doc.putProperty(PlainDocument.tabSizeAttribute, tabSize);
     JScrollPane scroll = new JScrollPane(codePane);
     add(scroll, BorderLayout.CENTER);
     // Build Search and Replace Box
@@ -98,6 +96,8 @@ public class CodeEditPane extends JPanel implements DocumentListener {
     codePane.setContentType("text/cpp");
     codePane.setFont(new Font("Courier", Font.PLAIN, 14));
     codePane.setEditable(true);
+    doc = codePane.getDocument();
+    doc.putProperty(PlainDocument.tabSizeAttribute, tabSize);
     // Setup Undo and Redo Handlers
     doc.addUndoableEditListener(evt -> undo.addEdit(evt.getEdit()));
     // Create an undo action and add it to the text component
