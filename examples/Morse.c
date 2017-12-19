@@ -12,6 +12,10 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 
+#define LED_PIN PB2
+#define setPin(PIN) (PORTB |= (1 << PIN))
+#define clrPin(PIN) (PORTB &= ~(1 << PIN))
+
 unsigned char   state = 0;
 unsigned char   idx = 0;
 char            let;
@@ -58,17 +62,17 @@ const unsigned char letters[] PROGMEM = {
 #if SOS
 const char message[] PROGMEM = "SOS ";
 #else
-const char message[] PROGMEM = "FLASHING LIGHT PRIZE ";
+const char message[] PROGMEM = "HELLO WORLD ";
 #endif
 
 int main (void) {
   // Set clock to 8 MHz
   CCP = 0xD8;			    // Unprotect CLKPSR reg
-  CLKPSR = 0x00;	     // Set Clock Prescaler to Divide by 1
+  CLKPSR = 0x00;	    // Set Clock Prescaler to Divide by 1
   // Calibrate Oscillator (use "Action->Calibrate Clock" to get OSCCAL value)
   OSCCAL = 0x58;
-  // set PB0 for output
-  DDRB = (1 << PB0);
+  // set LED_PIN for output
+  DDRB = (1 << LED_PIN);
 	// Setup Timer0 overflow interrupt
 	TCCR0A = 0x00;		// normal counter operation
 #if PRE32
@@ -85,60 +89,60 @@ int main (void) {
 
 ISR (TIM0_OVF_vect) {
 #if PRE32
-    if ((preDiv++ & 0x03) == 0) {
+  if ((preDiv++ & 0x03) == 0) {
 #endif
     switch (state) {
     case 0:             // Fetch next letter of message
-        let = message[0x4000 + idx++];
+      let = message[0x4000 + idx++];
         if (let == 0) {
             idx = 0;
-        } else if (let == ' ') {
+      } else if (let == ' ') {
             pat = 0;
             pLen = 2;
-        } else {
-            // adding 0x4000 is kludge needed to load from PGM space
-            unsigned char morse = letters[0x4000 + (let - 'A')];
-            unsigned char len = (morse >> 4) & 0x0F;
-            morse &= 0x0F;
-            pat = 0;
-            pLen = 0;
-            unsigned char ii;
-            // Build flash pattern for letter
-            for (ii = 0; ii < len; ii++) {
-                if ((morse & 0x08) != 0) {
-                    // DASH
-                    pat <<= 3;
-                    pat |= 0b110;
-                    pLen += 3;
-                } else {
-                    // DOT
-                    pat <<= 2;
-                    pat |= 0b10;
-                    pLen += 2;
-                }
-                morse <<= 1;
-            }
-            // Add gap after letter
-            pat <<= 1;
-            pLen += 1;
-            // Left justify pattern
-            pat <<= (16 - pLen);
+      } else {
+        // adding 0x4000 is kludge needed to load from PGM space
+        unsigned char morse = letters[0x4000 + (let - 'A')];
+        unsigned char len = (morse >> 4) & 0x0F;
+        morse &= 0x0F;
+        pat = 0;
+        pLen = 0;
+        unsigned char ii;
+        // Build flash pattern for letter
+        for (ii = 0; ii < len; ii++) {
+          if ((morse & 0x08) != 0) {
+            // DASH
+            pat <<= 3;
+            pat |= 0b110;
+            pLen += 3;
+          } else {
+            // DOT
+            pat <<= 2;
+            pat |= 0b10;
+            pLen += 2;
+          }
+          morse <<= 1;
         }
-        state = 1;
-        break;
+        // Add gap after letter
+        pat <<= 1;
+        pLen += 1;
+        // Left justify pattern
+        pat <<= (16 - pLen);
+      }
+      state = 1;
+      break;
     case 1:
-        if (pLen > 0) {
-            if ((pat & 0x8000) != 0) {
-                PORTB |= (1 << PB0);
-            } else {
-                PORTB &= ~(1 << PB0);
-            }
-            pat <<= 1;
-            pLen--;
+      if (pLen > 0) {
+        if ((pat & 0x8000) != 0) {
+          setPin(LED_PIN);
         } else {
-            state = 0;
+          clrPin(LED_PIN);
         }
-        break;
+        pat <<= 1;
+        pLen--;
+      } else {
+        state = 0;
+      }
+      break;
     }
 #if PRE32
     }

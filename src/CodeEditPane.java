@@ -46,7 +46,6 @@ public class CodeEditPane extends JPanel implements DocumentListener {
     tabSize = prefs.getInt("text.tabPane", 4);
     DefaultSyntaxKit.initKit();
     codePane = new JEditorPane();
-    codePane.setContentType("text/cpp");
     codePane.setFont(new Font("Courier", Font.PLAIN, 14));
     codePane.setEditable(true);
     doc = codePane.getDocument();
@@ -97,6 +96,8 @@ public class CodeEditPane extends JPanel implements DocumentListener {
     searchBar.add(closeBar, getGbc(idx++, .001));
     add(searchBar, BorderLayout.NORTH);
     doLayout();
+    // Note: must call setContentType() after doLayout() or line numbers will not show
+    codePane.setContentType("text/cpp");
     // Setup Undo and Redo Handlers
     doc.addUndoableEditListener(evt -> undo.addEdit(evt.getEdit()));
     // Create an undo action and add it to the text component
