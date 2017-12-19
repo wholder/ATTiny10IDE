@@ -47,6 +47,10 @@ You can use this Sketch to program as many ATTiny10s as needed, but you can also
 
 <p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/Arduino%20Programmer.JPG"></p>
 
+I've also created a small, inexpensive PCB you can [order from OSH Park](<https://oshpark.com/shared_projects/ZBxayCTS), which charges $1.10 for tree copies of my "ATTiny10 Programming Carrier-01" board.  Note: I don;t receive anything from OSH Park for offering this.  I d it just to make it a bit easier for you to propgram ATTiny10 chips using ATTiny10IDE.
+
+<p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/OSH%20Park%20Adapter.jpg"></p>
+
 ## Credit and Thanks
 - [Java Simple Serial Connector 2.8.0](https://github.com/scream3r/java-simple-serial-connector) JSSC is used to communicate with the Arduino-based programmer
 - [JSyntaxPane](https://github.com/nordfalk/jsyntaxpane) Provides C/C++ Syntax Highlighting for ATTiny10IDE
