@@ -47,9 +47,11 @@ You can use this Sketch to program as many ATTiny10s as needed, but you can also
 
 <p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/Arduino%20Programmer.JPG"></p>
 
-I've also created a small, inexpensive PCB you can [order from OSH Park](<https://oshpark.com/shared_projects/ZBxayCTS), which charges $1.10 for tree copies of my "ATTiny10 Programming Carrier-01" board.  Note: I don;t receive anything from OSH Park for offering this.  I d it just to make it a bit easier for you to propgram ATTiny10 chips using ATTiny10IDE.
+I've also created a small, inexpensive PCB you can [order from OSH Park](https://oshpark.com/shared_projects/ZBxayCTS), for $1.10 for three copies of the PCB.  Note: I don't receive anything from OSH Park for offering this.  I do it just to make it a bit easier for you to program ATTiny10 chips using ATTiny10IDE.  In the following photo, the ATTiny10 is soldered to an SOT-23-6 to DIP 6 adapter PCB.  This a widely available part you can order on eBay, or you can also [order 3 copies of a SOT-23-6 to DIP 6 adapter I designed from OSH Park](https://oshpark.com/shared_projects/vuWx5EkE).  To complete the first adapter PCB you'll need two, 3 pin, .1 inch spacing female headers, which serve as a socket for the SOT-23-6 to DIP adapter PCB, and a 5 pin strip of .1 inch spacing male headers.  YOu also need two, 3 pin strips of the male header for the SOT-23-6 adapter PCB.
 
 <p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/OSH%20Park%20Adapter.jpg"></p>
+
+To use the programming adpater, simpy plug it in to data pins 2 through 6 on the Arduino and then plug the SOT-23-6 to DIP adapter into the female headers on the programming adapter PCB being careful to align pin 1.  Once programmed, the SOT-23-6 to DIP adapter makes it easy to plug it into a breadboarded circuit to test your code.
 
 ## Credit and Thanks
 - [Java Simple Serial Connector 2.8.0](https://github.com/scream3r/java-simple-serial-connector) JSSC is used to communicate with the Arduino-based programmer
