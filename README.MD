@@ -24,26 +24,26 @@ ATTiny10IDE supports several different ways to program your compiled code into a
     Arduino Pin 5  // Pin 6 on ATtiny10
     Arduino Pin 6  // Pin 2 on ATtiny10
 Here are the steps you can follow to program an ATTiny10 using this method:
-1. Use "**`File->Open`**" to load the source file, or type your code into the "Source Code" pane and save it using the appropriate file extension.
-2. Select "**`Actions->Build`**" to compile. or assemble the code.
-3. Select "**`Actions->Generate Arduino Programmer Code`**" and save to a .ino (Arduino Sketch) file when prompted.
-4. Quit ATTiny10IDE so it does not interfere with the Arduino IDE's access to the Arduino's serial port.
-5. Load the file you generated into the Arduino (it will prompt you to create a folder for this file.  Choose Yes.)
-6. Program the Sketch into the Arduino using the "Upload" Button.
-7. Open the "**Serial Monitor**" window in the Arduino IDE (upper right button) and set the baud rate to 115200.
-8. Follow the istructions the Sketch prints to connect the Arduino to the ATTiny10.
-9. Verify the ATTiny10 is properly connected by using the Identify ATtiny10 command by typing '`**`I`**`' and pressing "**`Send`**".
-10. If Identify ATtiny10 responds with "Device: ATtiny10", you are clear to program the ATtiny10 by typing '**`P`**' and pressing "**`Send`**"
+ 1. Use "**`File->Open`**" to load the source file, or type your code into the "Source Code" pane and save it using the appropriate file extension.
+ 2. Select "**`Actions->Build`**" to compile. or assemble the code.
+ 3. Select "**`Actions->Generate Arduino Programmer Code`**" and save to a .ino (Arduino Sketch) file when prompted.
+ 4. Quit ATTiny10IDE so it does not interfere with the Arduino IDE's access to the Arduino's serial port.
+ 5. Load the file you generated into the Arduino (it will prompt you to create a folder for this file.  Choose Yes.)
+ 6. Program the Sketch into the Arduino using the "Upload" Button.
+ 7. Open the "**Serial Monitor**" window in the Arduino IDE (upper right button) and set the baud rate to 115200.
+ 8. Follow the istructions the Sketch prints to connect the Arduino to the ATTiny10.
+ 9. Verify the ATTiny10 is properly connected by using the Identify ATtiny10 command by typing '`**`I`**`' and pressing "**`Send`**".
+ 10. If Identify ATtiny10 responds with "Device: ATtiny10", you are clear to program the ATtiny10 by typing '**`P`**' and pressing "**`Send`**"
 
 You can use this Sketch to program as many ATTiny10s as needed, but you can also use it as a general-purpose ATTiny10 programmer to upload and program other code, like this:
 
-1. First "Quit" the Arduino IDE so ATTiny10IDE will have access to the Serial Port on the Arduino running the Sketch.
-2. Start ATTiny10IDE and set "**`Settings-Baud Rate`**" to 115200 and "**`Settings->Port`**" to select the Arduino running the Sketch.
-3. Open, or write the source code you want to compile and program into the ATtiny10.
-4. Select "**`Actions->Build`**" to compile. or assemble the code.
-5. Connect the Arduino to the ATTiny10 using the same connections shown above.
-5. Select "**`Actions->Device Signature`**" to verify the ATTiny10 is properly connected.
-6. Select "**`Actions->Program Device`**" to upload and program the code into the ATtiny10.
+ 1. First "Quit" the Arduino IDE so ATTiny10IDE will have access to the Serial Port on the Arduino running the Sketch.
+ 2. Start ATTiny10IDE and set "**`Settings-Baud Rate`**" to 115200 and "**`Settings->Port`**" to select the Arduino running the Sketch.
+ 3. Open, or write the source code you want to compile and program into the ATtiny10.
+ 4. Select "**`Actions->Build`**" to compile. or assemble the code.
+ 5. Connect the Arduino to the ATTiny10 using the same connections shown above.
+ 5. Select "**`Actions->Device Signature`**" to verify the ATTiny10 is properly connected.
+ 6. Select "**`Actions->Program Device`**" to upload and program the code into the ATtiny10.
 
 <p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/Arduino%20Programmer.JPG"></p>
 
@@ -53,6 +53,27 @@ I've also created a small, inexpensive PCB that implements the wiring shown in t
 
 To use the programming adpater, simpy plug it in to data pins 2 through 6 on the Arduino and then plug the SOT-23-6 to DIP adapter into the female headers on the programming adapter PCB being careful to align pin 1.  Once programmed, the SOT-23-6 to DIP adapter makes it easy to plug it into a breadboarded circuit to test your code.
 
+#### Setting Fuses
+I've made some non standard additions using the `#pragma` directive as a way to provide a way to send additional information to the programmer, such as to program the 3 special bits, of "fuses" in the ATTiny10's Configuration Byte.  These are:
+ 1. The `RSTDISBL` fuse changes the RESET pin (pin 6) into an I/O pin. which gives you 4 I/O pins instead of 3.  However, **WARNING**, if you program this fuse you'll lose the ability to reprogram the ATTiny10 until this fuse is cleared and a special, high voltage programmer is required to do this.  Also, if you do choose to use this pin for I/O it's best to use it only as an INPUT pin, since even a HV programmer can have trouble reseting the RSTDISBL fuse is pin 6 is used an an output.  Therefore, I recommend that you consider this fuse off limits until you are absolutely sure you know what you're doing, or have a stack of ATTiny10 chips to waste.
+ 2. The `WDTON` fuse, which forces the Watchdog Timer to alway be on.  You can enable the Watchdog Timer in software so, again this fuse is only needed for special applications.
+ 3. The `CLKOUT` fuse changes the function of `PORTB` `PB2` (pin 4) so that is ouputs the System Clock.
+ 
+ To set the `WDTON` fuse, for example, simply ass a line like this to the top of your source file:
+ 
+     #pragma fuses WDTON
+
+Additional fuse names can be added using a space, or a comma to separate them.
+#### Setting the Clock Rate
+If you choose to use the AVRLIB function `_delay()` to code software delay loops (see the `DelayBlink.c` example program) you need to tell the compiler what clock rate you intend to program into the ATTiny10 so that it can calculate the proper number of iterations for the delay loops.  To do this, add a line of like like this near the top of your source file:
+
+    #pragma clock 8000000
+    
+The above line, for example, tells the compiler you intend to run the ATTiny10 at 8 MHz.  Note: using this directive does not program the ATTiny10 to run at 8 MHz.  It simply tells the compiler to assume the ATTiny10 is running at this rate.  To actually set the clock rate you'll need to add code that configures the ATTiny10's clock prescaler to an appropriate value at startup.  Again, see the `DelayBlink.c` example program to see how to set the ATTiny10 to run at 8 MHz.
+#### Calibrating the ATTiny10's Internal Clock
+This ATTiny10 contains an internal clock that's roughly calibrated at the factory.  However, the accuracy of this clock can vary with temperature and the voltage at which the ATTiny10 operates.  The accuracy of the ATTiny10's clock can be important for applications that are timing critical, sush as implementing serial communication with software loops.  To more closely calibrate the clock, ATTiny10IDE has a feature that lets you run a small test program that compares the ATTiny10's clock against the Arduino's clock, which is usually set by a more precise, crystal oscillator (some Arduinos use a far less accurate ceramic "resonator" instead of a crystal and these are not recommended as a reference for calibraing the ATTiny10's clock.)
+
+To calibrate an ATTiny10's clock, choose "`Calibrate Clock`" from the "`Actions`" menu.  This will cause ATTiny10IDE to download and run a small program to the ATTiny10 that will iteratively test various calibration values and print out the one it chooses as the best.  However, you must then add some code to your program to push this value into the OSCCAL register at startup.  See `DelayBlink.c` example program to see how this is done.  Note: each ATTiny10 will require a unique calibation value, so this step will need to be repeated for each ATTiny chip you program that requires a more accurately calibrated clock.
 ## Credit and Thanks
 This project would have been much harder and much less cool without help from the following open source projects, or freely available software.
 - [Java Simple Serial Connector 2.8.0](https://github.com/scream3r/java-simple-serial-connector) JSSC is used to communicate with the Arduino-based programmer
