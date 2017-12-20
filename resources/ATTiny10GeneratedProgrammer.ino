@@ -152,6 +152,7 @@ unsigned char enterProgMode () {
       return 1;  // enabled
     }
   }
+  Serial.println("Unable to select program mode");
   return 0;      // timeout
 }
 

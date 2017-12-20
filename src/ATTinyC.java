@@ -355,7 +355,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       try {
         if (jPort != null && jPort.isOpen()) {
           selectTab(Tab.PROG);
-          jPort.sendString("S");
+          jPort.sendString("S\n");
         } else {
           showErrorDialog("Serial port not selected!");
         }
