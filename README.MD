@@ -54,6 +54,7 @@ I've also created a small, inexpensive PCB that implements the wiring shown in t
 To use the programming adpater, simpy plug it in to data pins 2 through 6 on the Arduino and then plug the SOT-23-6 to DIP adapter into the female headers on the programming adapter PCB being careful to align pin 1.  Once programmed, the SOT-23-6 to DIP adapter makes it easy to plug it into a breadboarded circuit to test your code.
 
 ## Credit and Thanks
+This project would have been much harder and much less cool without help from the following open source projects, or freely available software.
 - [Java Simple Serial Connector 2.8.0](https://github.com/scream3r/java-simple-serial-connector) JSSC is used to communicate with the Arduino-based programmer
 - [JSyntaxPane](https://github.com/nordfalk/jsyntaxpane) Provides C/C++ Syntax Highlighting for ATTiny10IDE
 - [IntelliJ IDEA from JetBrains](https://www.jetbrains.com/idea/) (my favorite development environment for Java coding. Thanks JetBrains!)
