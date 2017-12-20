@@ -59,7 +59,7 @@ I've made some non standard additions using the `#pragma` directive as a way to 
  2. The `WDTON` fuse, which forces the Watchdog Timer to alway be on.  You can enable the Watchdog Timer in software so, again this fuse is only needed for special applications.
  3. The `CLKOUT` fuse changes the function of `PORTB` `PB2` (pin 4) so that is ouputs the System Clock.
  
- To set the `WDTON` fuse, for example, simply ass a line like this to the top of your source file:
+ To set the `WDTON` fuse, for example, simply add a line like this to the top of your source file:
  
      #pragma fuses WDTON
 
