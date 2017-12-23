@@ -1,5 +1,4 @@
 #pragma clock 8000000
-#pragma chip attiny10
 #pragma fuses rstdisbl
 
 //           +====+

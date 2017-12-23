@@ -52,6 +52,37 @@ I've also created a small, inexpensive PCB that implements the wiring shown in t
 <p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/OSH%20Park%20Adapter.jpg"></p>
 
 To use the programming adpater, simply plug it in to data pins 2 through 6 on the Arduino and then plug the SOT-23-6 to DIP adapter into the female headers on the programming adapter PCB being careful to align pin 1 to pin one on both boards.  Once programmed, the SOT-23-6 to DIP adapter makes it easy to plug it into a breadboarded circuit to test your code.
+## Include `Arduino.h` to code "sketches" in ATTiny10IDE
+When coding in C or C++, ATTiny10IDE expects you to put your code in a function named `main()` and handle all the details of using the low-level ATTiny10 architecture which involves ading and writing to hardware registers to perform I/O operations.  However, if your file starts by including the header file `Arduino.h`, like this:
+
+    #include "Ardiuno.h"
+you'll be able to write code in a way that is familiar to users of the Arduino IDE.  Instead of writing a `main()` function, your one-time initialization code will go in a function named `setup()` and code that executes again and again will go into a function named `loop()`.  Arduino calls a program like this a "sketch".  The example program `Blank.h` is a sample starting sketch you can copy to start coding.  It looks like this:
+
+    #include "Arduino.h"
+
+    void setup() {
+      // put your setup code here, to run once:
+    }
+    
+    void loop() {
+      // put your main code here, to run repeatedly:
+    }
+#### Convenience Functions
+In addition, `Arduino.h` provides a set of convenience functions you can call to do digital and analog I/O in a fashion similar to how the Arduino IDE handles these operations.  These include `pinMode()`, `digitalWrite()`, `digitalRead()`, `analogWrite()`, `analogRead()`, `delay()` and `delayMicroseconds()`.  The digital I/O functions are implemented as `#define` macros, which the GNU compiler is able to efficient convert to quite optimal code.  But, be aware that you'll get the most compact and efficient code when the values passed for pin numbers resolve to constants at compile time.  For example, a call to `digitalWrite(2, HIGH)` compiles to the single instruction, `sbi	0x02,2`, in ATTiny10 assembly language.
+
+Calls to `analogRead()` and `analogWrite()` go to actual C functions because some initialization steps are required the first time one of these functions is called.  For this reason, trying to use the same pin for both analog and digital I/o is not recommended, as the initialization code will not run a second time.  If you need to do this kind of function switching with pins, you'll need to develve into how to write code that directly manipulates the low-level I/O registers in the ATTiny10.  Note: check out some of the more advanced example programs, such as `TimerBlink.c` and `PulsingLED.c`, to see how you can use C/C++ code to directly access the ATTiny10's I/O registers.
+
+Calls to `delay()` and `delayMicroseconds()` are also handled by `#define` macros but redirect to the [AVRlib](http://www.nongnu.org/avr-libc/) functions `_delay_ms()` and `_delay_us()`, respectively. The timing of these macros depends on the  `#pragma clock` to directive (see "Advanced Features") tell the compiler what clock speed the ATTiny10 is using, which the compiler needs to calculate the number of loop iterations needed for a specific delay.  But, by default, this is handled automatically and the clock for code using `Arduino.h` is set to 8 MHz.
+
+If a different clock speed is needed, you can call the `clockSpeed()` function and pass one of the following `enum` values as its parameter to set the speed.  Legal parameter values are `CLK_8000000`, `CLK_4000000`, `CLK_2000000`, `CLK_1000000`, `CLK_500000`, `CLK_250000`, `CLK_125000,` `CLK_62500`, or `CLK_31250`.  Note: `analogRead()` depends on the setting of the system clock to set the clock prescaler used by the ADC, so `CLK_250000` is the lowest clock speed recommended if you are using `analogRead()`.
+
+## Dealing with the ATTiny10's Limited RAM Space
+The ATTiny10 prpovides only 32 bytes of RAM space for variables and the program call stack.  So, it's important to use `char` and `unsigned char` variables instead of `int` and `unsigned int` wherever possible and limit function call depth (recursion is not recommended), use stack variables carefully (variables declared in functions) and globally-declared arrays.  Fortunately, the AVR architecture has 32 registers available and the GNU compiler makes very eficient use of them, but there are still a few tricks that can help keep RAM usage under control.
+
+One essential trick is [using the `PROGMEM` directive](http://www.atmel.com/webdoc/avrlibcreferencemanual/pgmspace_1pgmspace_data.html) to create `const` arrays that are stored in Flash memory rather than RAM.  This only works for read only arrays, but using it for table lookup, or strings of text makes it possible to do things would be impossible without it.  The example program `Morse.c` shows how to use `PROGMEM` to store moth a lookup table for ASCII to Morse code conversion as well as for a `char[]` string for the message text.
+
+## Advanced Features
+The following sections cover advanced topics that assume you have some knowledge of the hardware architecture of the ATTiny series of microconttrollers.  To understand these sections, you should be familiar with the latest version of the [Atmel Datasheet for the ATiny4, ATiny5, ATiny9, ATiny10 8-bit AVR Microcontrollers](http://www.atmel.com/images/atmel-8127-avr-8-bit-microcontroller-attiny4-attiny5-attiny9-attiny10_datasheet.pdf).
 
 #### Setting Fuses
 I've made some non standard additions using the `#pragma` directive as a way to provide a way to send additional information to the programmer, such as to program the 3 special bits, of "fuses" in the ATTiny10's Configuration Byte.  These are:
@@ -66,15 +97,15 @@ I've made some non standard additions using the `#pragma` directive as a way to 
 
 Additional fuse names can be added using a space, or a comma to separate them.
 #### Setting the Clock Rate
-If you choose to use the AVRLIB function `_delay()` to code software delay loops (see the `DelayBlink.c` example program) you need to tell the compiler what clock rate you intend to program into the ATTiny10 so that it can calculate the proper number of iterations for the delay loops.  To do this, add a line of like like this near the top of your source file:
+If you choose to use the AVRLIB function `_delay_ms()` to code software delay loops you need to tell the compiler what clock rate you intend to program into the ATTiny10 so that it can calculate the proper number of iterations for the delay loops.  To do this, add a line of like like this near the top of your source file:
 
     #pragma clock 8000000
     
-The above line, for example, tells the compiler you intend to run the ATTiny10 at 8 MHz.  Note: using this directive does not program the ATTiny10 to run at 8 MHz.  It simply tells the compiler to assume the ATTiny10 is running at this rate.  To actually set the clock rate you'll need to add code that configures the ATTiny10's clock prescaler to an appropriate value at startup.  Again, see the `DelayBlink.c` example program to see how to set the ATTiny10 to run at 8 MHz.
+The above line, for example, tells the compiler you intend to run the ATTiny10 at 8 MHz.  Note: using this directive does not program the ATTiny10 to run at 8 MHz.  It simply tells the compiler to assume the ATTiny10 is running at this rate.  To actually set the clock rate you'll need to add code that configures the ATTiny10's clock prescaler to an appropriate value at startup.  Note: if you're including `Arduino.h`, the clock rate is automatically set to 8 MHz.
 #### Calibrating the ATTiny10's Internal Clock
 This ATTiny10 contains an internal clock that's roughly calibrated at the factory.  However, the accuracy of this clock can vary with temperature and the voltage at which the ATTiny10 operates.  The accuracy of the ATTiny10's clock can be important for applications that are timing critical, such as implementing serial communication with software loops.  To more closely calibrate the clock, ATTiny10IDE has a feature that lets you run a small test program that compares the ATTiny10's clock against the Arduino's clock, which is usually set by a more precise, crystal oscillator (some Arduinos use a far less accurate ceramic "resonator" instead of a crystal and these are not recommended as a reference for calibraing the ATTiny10's clock.)
 
-To calibrate an ATTiny10's clock, choose "`Calibrate Clock`" from the "`Actions`" menu.  This will cause ATTiny10IDE to download and run a small program to the ATTiny10 that will iteratively test various calibration values and print out the one it chooses as the best.  However, you must then add some code to your program to push this value into the OSCCAL register at startup.  See `DelayBlink.c` example program to see how this is done.  Note: each ATTiny10 will require a unique calibation value, so this step will need to be repeated for each ATTiny chip you program that requires a more accurately calibrated clock.
+To calibrate an ATTiny10's clock, choose "`Calibrate Clock`" from the "`Actions`" menu.  This will cause ATTiny10IDE to download and run a small program to the ATTiny10 that will iteratively test various calibration values and print out the one it chooses as the best.  However, you must then add some code to your program to push this value into the OSCCAL register at startup.  See `DelayTimer.c` example program to see how this is done.  Note: each ATTiny10 will require a unique calibation value, so this step will need to be repeated for each ATTiny chip you program that requires a more accurately calibrated clock.
 #### Device Selection
 In many of the example source files you'll see a line of text that reads "`#pragma chip attiny10`", which is used to tell the compiler or assembler what type of AVR chip to target.  However, the ATTiny10 is the default value used if you omit this line.  In theory it can be used to select and compile for other AVR chips but ATTiny10IDE does not currently support any propgramming options for any other selections you could make.  You could use this to select one of the chips in the ATTiny10 family, such as the ATTiny4, 5, or 9, but there is little reason to do so, as these chips are less capable than the ATTiny10 and don't cost significantly less, if you are even able to purchase them.
 ## Credit and Thanks

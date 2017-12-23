@@ -1,5 +1,3 @@
-#pragma chip attiny10
-
 //           +====+
 //  PWMA/PB0 |*   | PB3 (RESET)
 //       GND |    | Vcc
@@ -12,6 +10,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#include "Arduino.h"
 
 #define LED PB0     // PB0 or PB1
 
@@ -26,32 +25,15 @@ const unsigned char cycle[] PROGMEM = {
 
 unsigned char idx = 0;
 
-int main (void) {
-  // Set clock to 256 kHz by setting prescaler to device by 32
-  CCP = 0xD8;			   // Unprotect CLKPSR reg
-  CLKPSR = (1 << CLKPS2) | (1 << CLKPS0);	       
-  // Set PORTB PB0 for output
-  DDRB = (1 << LED);
-  PORTB = 0x00;
-  // Setup for Fast PWM
-#if LED == PB1
-  TCCR0A = 0x31;
-  TCCR0B = 0x81;
-  OCR0BH = 0x00;
-#else
-  TCCR0A = 0xC1;
-  TCCR0B = 0x81;
-  OCR0AH = 0x00;
-#endif
+void setup () {
+  // Set clock to 256 kHz
+  clockSpeed(CLK_250000);
+  // Enable Sleep Mode
   SMCR = (1 << SE);
   // Enable Global Interrupts
   sei();
   while (1) {
-#if LED == PB1
-    OCR0BL = cycle[0x4000 + idx];
-#else
-    OCR0AL = cycle[0x4000 + idx];
-#endif
+    analogWrite(LED, pgm_read_byte(&cycle[idx]));
     if (++idx >= sizeof(cycle)) {
       idx = 0;
     }
@@ -63,6 +45,9 @@ int main (void) {
       "sleep\n"
       ::);
   }
+}
+
+void loop () {
 }
 
 // Watchdog Timer Interrupt handler

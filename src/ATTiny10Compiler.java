@@ -23,8 +23,16 @@ class ATTiny10Compiler {
     {"SIZE",  "avr-size --format=avr --mcu=*[CHIP]* *[TDIR]*code.elf"},
   };
   private static String[][] comp = {
-    {"COMP1", "avr-g++ -ggdb -std=gnu++11 -Wall -Wno-unknown-pragmas -Os -DF_CPU=*[CLOCK]* -mmcu=*[CHIP]* -c *[TDIR]*code.c -o *[TDIR]*code.o"},
-    {"COMP2", "avr-g++ -std=gnu++11 -Wall -Os -DF_CPU=*[CLOCK]* -mmcu=*[CHIP]* -o *[TDIR]*code.elf *[TDIR]*code.o"},
+    {"COMP1", "avr-g++ -ggdb -std=gnu++11 *[LOPTS]* -Wno-unknown-pragmas -Os -DF_CPU=*[CLOCK]* -mmcu=*[CHIP]* -c *[TDIR]*code.c -o *[TDIR]*code.o"},
+    {"COMP2", "avr-g++ -std=gnu++11 *[LOPTS]* -Os -DF_CPU=*[CLOCK]* -mmcu=*[CHIP]* -o *[TDIR]*code.elf *[TDIR]*code.o"},
+    {"TOHEX", "avr-objcopy -j .text -j .data -O ihex *[TDIR]*code.elf *[TDIR]*code.hex"},
+    {"LST",   "avr-objdump -d -S -t *[TDIR]*code.elf"},
+    {"SIZE",  "avr-size --format=avr --mcu=*[CHIP]* *[TDIR]*code.elf"},
+  };
+  private static String[][] compArduino = {
+    {"COMP1", "avr-g++ -ggdb -std=gnu++11 *[LOPTS]* -Wno-unknown-pragmas -Os -DF_CPU=*[CLOCK]* -mmcu=*[CHIP]* -c *[TDIR]*code.c -o *[TDIR]*code.o"},
+    {"COMP2", "avr-g++ -ggdb -std=gnu++11 *[LOPTS]* -Wno-unknown-pragmas -Os -DF_CPU=*[CLOCK]* -mmcu=*[CHIP]* -c *[TDIR]*Arduino.c -o *[TDIR]*Arduino.o"},
+    {"COMP3", "avr-g++ -std=gnu++11 *[LOPTS]* -Os -DF_CPU=*[CLOCK]* -mmcu=*[CHIP]* -o *[TDIR]*code.elf *[TDIR]*code.o *[TDIR]*Arduino.o"},
     {"TOHEX", "avr-objcopy -j .text -j .data -O ihex *[TDIR]*code.elf *[TDIR]*code.hex"},
     {"LST",   "avr-objdump -d -S -t *[TDIR]*code.elf"},
     {"SIZE",  "avr-size --format=avr --mcu=*[CHIP]* *[TDIR]*code.elf"},
@@ -38,6 +46,13 @@ class ATTiny10Compiler {
     fuses.put("rstdisbl", 1); // External Reset Disable
   }
 
+  private void copyResourceToDir (String fName, String tmpDir) throws IOException {
+    byte[] arduino = getFile("res:" + fName);
+    FileOutputStream fOut = new FileOutputStream(tmpDir + fName);
+    fOut.write(arduino);
+    fOut.close();
+  }
+
   public Map<String,String> compile (String src, String tmpExe, String tmpDir, boolean doAsm) throws Exception {
     // Remove any prior tmp files
     final File[] files = (new File(tmpDir)).listFiles();
@@ -45,6 +60,13 @@ class ATTiny10Compiler {
       for (File file : files) {
         file.delete();
       }
+    }
+    if (!doAsm) {
+      try {
+        // Copy Arduino.h and Arduino.c into tmpDir
+        copyResourceToDir("Arduino.h", tmpDir);
+        copyResourceToDir("Arduino.c", tmpDir);
+      } catch (IOException ex) {}
     }
     byte fuseBits = 0x0F;
     String clock = null, chip = null;
@@ -73,7 +95,6 @@ class ATTiny10Compiler {
             clock = parts[1];
           } else if ("chip".equals(parts[0])) {
             chip = parts[1];
-            chip = chip != null ? chip : "attiny10";
          }
         }
       }
@@ -83,8 +104,9 @@ class ATTiny10Compiler {
     tags.put("CDIR", curDir);
     tags.put("TDIR", tmpDir);
     tags.put("IDIR", tmpExe + "avr" + fileSep + "include" + fileSep);
-    tags.put("CHIP", chip);
+    tags.put("CHIP", chip = chip != null ? chip : "attiny10");
     tags.put("CLOCK", clock != null ? clock : "8000000");
+    tags.put("LOPTS", "-Wl,-static -fvtable-gc -fdata-sections -ffunction-sections -Wl,--gc-sections");
     // Copy contents of "source" pane to temp file with appropriate extension for code type
     try {
       FileOutputStream fOut = new FileOutputStream(tmpDir + (doAsm ? "code.S" : "code.c"));
@@ -96,7 +118,8 @@ class ATTiny10Compiler {
     // Compile Sequence
     Map<String,String> out = new HashMap<>();
     out.put("INFO", "chip: " + tags.get("CHIP") + ", clock: " + tags.get("CLOCK") + ", fuses: " + hexChar(fuseBits));
-    for (String[] seq : (doAsm ? asm : comp)) {
+    boolean arduino = src.contains("Arduino.h");
+    for (String[] seq : (doAsm ? asm : arduino ? compArduino : comp)) {
       String cmd = tmpExe + "bin" + fileSep + seq[1];
       try {
       cmd = replaceTags(cmd, tags);

@@ -1,5 +1,4 @@
 #pragma clock 8000000
-#pragma chip attiny10
 
 //           +====+
 //  PWMA/PB0 |*   | PB3 (RESET)
@@ -11,23 +10,15 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#include "Arduino.h"
 
 #define LED_PIN PB2
-#define setPin(PIN) (PORTB |= (1 << PIN))
-#define clrPin(PIN) (PORTB &= ~(1 << PIN))
 
 unsigned char   state = 0;
 unsigned char   idx = 0;
 char            let;
 unsigned int    pat;
 unsigned char   pLen;
-
-#define SOS     0
-#define PRE32   1
-
-#if PRE32
-unsigned char   preDiv;
-#endif
 
 const unsigned char letters[] PROGMEM = {
     // Note: 1 is DASH, 0 is DOT
@@ -59,92 +50,72 @@ const unsigned char letters[] PROGMEM = {
     (4 << 4) | 0b1100,      // Z
 };
 
-#if SOS
-const char message[] PROGMEM = "SOS ";
-#else
 const char message[] PROGMEM = "HELLO WORLD ";
-#endif
 
-int main (void) {
-  // Set clock to 8 MHz
-  CCP = 0xD8;			    // Unprotect CLKPSR reg
-  CLKPSR = 0x00;	    // Set Clock Prescaler to Divide by 1
-  // Calibrate Oscillator (use "Action->Calibrate Clock" to get OSCCAL value)
-  OSCCAL = 0x58;
+void setup (void) {
   // set LED_PIN for output
-  DDRB = (1 << LED_PIN);
+  pinMode(LED_PIN, OUTPUT);
 	// Setup Timer0 overflow interrupt
 	TCCR0A = 0x00;		// normal counter operation
-#if PRE32
-	TCCR0B = 0x02;		// timer clock = 8 MHz / 8
-#else
 	TCCR0B = 0x03;		// timer clock = 8 MHz / 64
-#endif
 	TIMSK0 = 0x01;		// enable overflow interrupt
-	sei(); 				// Enable Global Interrupts
-  while (1) {
-    // Wait for interrupt
-  }
+	sei(); 				    // Enable Global Interrupts
+}
+
+void loop () {
 }
 
 ISR (TIM0_OVF_vect) {
-#if PRE32
-  if ((preDiv++ & 0x03) == 0) {
-#endif
-    switch (state) {
-    case 0:             // Fetch next letter of message
-      let = message[0x4000 + idx++];
-        if (let == 0) {
-            idx = 0;
-      } else if (let == ' ') {
-            pat = 0;
-            pLen = 2;
-      } else {
-        // adding 0x4000 is kludge needed to load from PGM space
-        unsigned char morse = letters[0x4000 + (let - 'A')];
-        unsigned char len = (morse >> 4) & 0x0F;
-        morse &= 0x0F;
-        pat = 0;
-        pLen = 0;
-        unsigned char ii;
-        // Build flash pattern for letter
-        for (ii = 0; ii < len; ii++) {
-          if ((morse & 0x08) != 0) {
-            // DASH
-            pat <<= 3;
-            pat |= 0b110;
-            pLen += 3;
-          } else {
-            // DOT
-            pat <<= 2;
-            pat |= 0b10;
-            pLen += 2;
-          }
-          morse <<= 1;
-        }
-        // Add gap after letter
-        pat <<= 1;
-        pLen += 1;
-        // Left justify pattern
-        pat <<= (16 - pLen);
-      }
-      state = 1;
-      break;
-    case 1:
-      if (pLen > 0) {
-        if ((pat & 0x8000) != 0) {
-          setPin(LED_PIN);
+  switch (state) {
+  case 0:             // Fetch next letter of message
+    let = pgm_read_byte(&message[idx++]);
+      if (let == 0) {
+          idx = 0;
+    } else if (let == ' ') {
+          pat = 0;
+          pLen = 2;
+    } else {
+      unsigned char morse = pgm_read_byte(&letters[let - 'A']);
+      unsigned char len = (morse >> 4) & 0x0F;
+      morse &= 0x0F;
+      pat = 0;
+      pLen = 0;
+      unsigned char ii;
+      // Build flash pattern for letter
+      for (ii = 0; ii < len; ii++) {
+        if ((morse & 0x08) != 0) {
+          // DASH
+          pat <<= 3;
+          pat |= 0b110;
+          pLen += 3;
         } else {
-          clrPin(LED_PIN);
+          // DOT
+          pat <<= 2;
+          pat |= 0b10;
+          pLen += 2;
         }
-        pat <<= 1;
-        pLen--;
-      } else {
-        state = 0;
+        morse <<= 1;
       }
-      break;
+      // Add gap after letter
+      pat <<= 1;
+      pLen += 1;
+      // Left justify pattern
+      pat <<= (16 - pLen);
     }
-#if PRE32
+    state = 1;
+    break;
+  case 1:
+    if (pLen > 0) {
+      if ((pat & 0x8000) != 0) {
+        digitalWrite(LED_PIN, HIGH);
+      } else {
+        digitalWrite(LED_PIN, LOW);
+      }
+      pat <<= 1;
+      pLen--;
+    } else {
+      state = 0;
     }
-#endif
+    break;
+  }
 }
