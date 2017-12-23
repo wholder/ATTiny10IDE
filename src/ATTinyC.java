@@ -498,7 +498,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         try {
           try {
             zip = new ZipFile(new File(path));
-          } catch (FileNotFoundException ex) {
+          } catch (Exception ex) {
             // Workaround for Windows unable to make a File() from a resource path
             Path file = Files.createTempFile(null, ".zip");
             InputStream stream = this.getClass().getResourceAsStream(srcZip);
@@ -677,13 +677,21 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     return cc >= 'A' ? cc - 'A' + 10 : cc - '0';
   }
 
-  private byte[] getFile (String file) throws IOException {
-    InputStream fis = file.startsWith("res:") ? getClass().getResourceAsStream("/" + file.substring(4)) : new FileInputStream(file);
-    byte[] data = new byte[fis.available()];
-    fis.read(data);
-    fis.close();
-    return data;
-  }
+    private byte[] getFile (String file) throws IOException {
+      InputStream fis;
+      if (file.startsWith("res:")) {
+        fis = getClass().getResourceAsStream(file.substring(4));
+      } else {
+        fis = new FileInputStream(file);
+      }
+      if (fis != null) {
+        byte[] data = new byte[fis.available()];
+        fis.read(data);
+        fis.close();
+        return data;
+      }
+      throw new IllegalStateException("getFile() " + file + " not found");
+    }
   
   private boolean discardChanges () {
     return doWarningDialog("Discard Changes?");

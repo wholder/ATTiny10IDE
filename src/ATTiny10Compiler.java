@@ -175,18 +175,21 @@ class ATTiny10Compiler {
     return buf.toString();
   }
 
-  private static byte[] getFile (String file) throws IOException {
-    InputStream fis;
-    if (file.startsWith("res:")) {
-      fis = Object.class.getResourceAsStream("/" + file.substring(4));
-    } else {
-      fis = new FileInputStream(file);
+    private byte[] getFile (String file) throws IOException {
+      InputStream fis;
+      if (file.startsWith("res:")) {
+        fis = getClass().getResourceAsStream(file.substring(4));
+      } else {
+        fis = new FileInputStream(file);
+      }
+      if (fis != null) {
+        byte[] data = new byte[fis.available()];
+        fis.read(data);
+        fis.close();
+        return data;
+      }
+      throw new IllegalStateException("getFile() " + file + " not found");
     }
-    byte[] data = new byte[fis.available()];
-    fis.read(data);
-    fis.close();
-    return data;
-  }
 
   private static String[] parse (String line) {
     List<String> out = new ArrayList<>();
