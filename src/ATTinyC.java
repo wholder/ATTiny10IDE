@@ -2,6 +2,7 @@ import java.awt.*;
 import java.awt.event.*;
 
 import java.io.*;
+import java.net.URI;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
@@ -445,9 +446,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         tmp.mkdir();
         tmpExe = tmp.getAbsolutePath() + System.getProperty("file.separator");
         if (osName.contains("windows")) {
-          new ToolchainLoader(this, "/WinToolchain.zip", tmpExe);
+          new ToolchainLoader(this, "WinToolchain.zip", tmpExe);
         } else if (osName.contains("mac")) {
-          new ToolchainLoader(this, "/MacToolchain.zip", tmpExe);
+          new ToolchainLoader(this, "MacToolchain.zip", tmpExe);
         } else {
           throw new IllegalStateException("Unsupported os: " + osName);
         }
@@ -473,15 +474,15 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       this.tmpExe = tmpExe;
       frame = new JDialog(comp, "Loading AVR Toolchain");
       frame.setUndecorated(true);
-      JPanel pnl = new JPanel(new GridLayout(2, 1, 5, 5));
+      JPanel pnl = new JPanel(new BorderLayout());
       pnl.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
       frame.add(pnl, BorderLayout.CENTER);
-      pnl.add(progress = new JProgressBar());
+      pnl.add(progress = new JProgressBar(), BorderLayout.NORTH);
       JTextArea txt = new JTextArea("Loading AVR Toolchain,\n  Please wait.");
       txt.setEditable(false);
-      pnl.add(txt);
+      pnl.add(txt, BorderLayout.SOUTH);
       Rectangle loc = comp.getBounds();
-      frame.setSize(200, 100);
+      frame.pack();
       frame.setLocation(loc.x + loc.width / 2 - 150, loc.y + loc.height / 2 - 150);
       frame.setVisible(true);
       start();
@@ -493,20 +494,15 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         if (!dst.exists()) {
           dst.mkdir();
         }
-        String path = getClass().getResource(srcZip).getPath();
+        infoPane.append("srcZip: " + srcZip + "\n");
         ZipFile zip = null;
         try {
-          try {
-            zip = new ZipFile(new File(path));
-          } catch (Exception ex) {
-            // Workaround for Windows unable to make a File() from a resource path
-            Path file = Files.createTempFile(null, ".zip");
-            InputStream stream = this.getClass().getResourceAsStream(srcZip);
-            Files.copy(stream, file, StandardCopyOption.REPLACE_EXISTING);
-            File srcFile = file.toFile();
-            srcFile.deleteOnExit();
-            zip = new ZipFile(srcFile);
-          }
+          Path file = Files.createTempFile(null, ".zip");
+          InputStream stream = this.getClass().getResourceAsStream(srcZip);
+          Files.copy(stream, file, StandardCopyOption.REPLACE_EXISTING);
+          File srcFile = file.toFile();
+          srcFile.deleteOnExit();
+          zip = new ZipFile(srcFile);
           int entryCount = 0, lastEntryCount = 0;
           progress.setMaximum(zip.size());
           Enumeration entries = zip.entries();
