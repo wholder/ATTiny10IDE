@@ -33,7 +33,7 @@ void setup () {
   // Enable Global Interrupts
   sei();
   while (1) {
-    analogWrite(LED, pgm_read_byte(&cycle[idx]));
+    analogWrite(LED, 0xFF - pgm_read_byte(&cycle[idx]));
     if (++idx >= sizeof(cycle)) {
       idx = 0;
     }

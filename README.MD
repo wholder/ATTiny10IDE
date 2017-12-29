@@ -1,6 +1,5 @@
 <p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/ATTiny10IDE%20Screenshot.png"></p>
 
-
 # ATTiny10IDE (Now for Mac and Windows)
 ATTiny10IDE is a simple, GNU-based IDE I wrote to simplify writing code for the ATTiny10 Series Microcontrollers using C. C++ or Assembly language.  It's a greatly expanded and updated version of a project I started back in 2014.  [See read this article for some additional details on how this project started](https://sites.google.com/site/wayneholder/attiny10-c-ide-and-improved-device-programmer).  
 
@@ -38,7 +37,7 @@ Here are the steps you can follow to program an ATTiny10 using this method:
 You can use this Sketch to program as many ATTiny10s as needed, but you can also use it as a general-purpose ATTiny10 programmer to upload and program other code, like this:
 
  1. First "Quit" the Arduino IDE so ATTiny10IDE will have access to the Serial Port on the Arduino running the Sketch.
- 2. Start ATTiny10IDE and set "**`Settings-Baud Rate`**" to 115200 and "**`Settings->Port`**" to select the Arduino running the Sketch.
+ 2. Start ATTiny10IDE and set "**`Settings->Baud Rate`**" to 115200 and "**`Settings->Port`**" to select the Arduino running the Sketch.
  3. Open, or write the source code you want to compile and program into the ATtiny10.
  4. Select "**`Actions->Build`**" to compile. or assemble the code.
  5. Connect the Arduino to the ATTiny10 using the same connections shown above.
@@ -56,6 +55,7 @@ To use the programming adpater, simply plug it in to data pins 2 through 6 on th
 When coding in C or C++, ATTiny10IDE expects you to put your code in a function named `main()` and handle all the details of using the low-level ATTiny10 architecture which involves ading and writing to hardware registers to perform I/O operations.  However, if your file starts by including the header file `Arduino.h`, like this:
 
     #include "Ardiuno.h"
+    
 you'll be able to write code in a way that is familiar to users of the Arduino IDE.  Instead of writing a `main()` function, your one-time initialization code will go in a function named `setup()` and code that executes again and again will go into a function named `loop()`.  Arduino calls a program like this a "sketch".  The example program `Blank.h` is a sample starting sketch you can copy to start coding.  It looks like this:
 
     #include "Arduino.h"
@@ -67,6 +67,7 @@ you'll be able to write code in a way that is familiar to users of the Arduino I
     void loop() {
       // put your main code here, to run repeatedly:
     }
+    
 #### Convenience Functions
 In addition, `Arduino.h` provides a set of convenience functions you can call to do digital and analog I/O in a fashion similar to how the Arduino IDE handles these operations.  These include `pinMode()`, `digitalWrite()`, `digitalRead()`, `analogWrite()`, `analogRead()`, `delay()` and `delayMicroseconds()`.  The digital I/O functions are implemented as `#define` macros, which the GNU compiler is able to efficient convert to quite optimal code.  But, be aware that you'll get the most compact and efficient code when the values passed for pin numbers resolve to constants at compile time.  For example, a call to `digitalWrite(2, HIGH)` compiles to the single instruction, `sbi	0x02,2`, in ATTiny10 assembly language.
 
@@ -91,9 +92,9 @@ I've made some non standard additions using the `#pragma` directive as a way to 
  2. The `WDTON` fuse, which forces the Watchdog Timer to alway be on.  You can enable the Watchdog Timer in software so, again this fuse is only needed for special applications.
  3. The `CLKOUT` fuse changes the function of `PORTB` `PB2` (pin 4) so that is ouputs the System Clock.
  
- To set the `WDTON` fuse, for example, simply add a line like this to the top of your source file:
+To set the `WDTON` fuse, for example, simply add a line like this to the top of your source file:
  
-     #pragma fuses WDTON
+    #pragma fuses WDTON
 
 Additional fuse names can be added using a space, or a comma to separate them.
 #### Setting the Clock Rate
