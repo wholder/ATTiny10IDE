@@ -2,7 +2,6 @@ import java.awt.*;
 import java.awt.event.*;
 
 import java.io.*;
-import java.net.URI;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
@@ -35,7 +34,8 @@ import jssc.SerialNativeInterface;
    */
 
 public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
-  private static Font               tFont = new Font("Monospaced", Font.PLAIN, 12);
+  private static boolean            windows = System.getProperty("os.name").toLowerCase().indexOf("win") >= 0;
+  private static Font               tFont = new Font(windows ? "Consolas" : "Menlo", Font.PLAIN, 12);
   private static int                cmdMask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMask();
   private static KeyStroke          OPEN_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_O, cmdMask) ;
   private static KeyStroke          SAVE_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_S, cmdMask) ;

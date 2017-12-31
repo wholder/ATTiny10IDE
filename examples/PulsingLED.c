@@ -12,7 +12,7 @@
 #include <avr/pgmspace.h>
 #include "Arduino.h"
 
-#define LED PB0     // PB0 or PB1
+#define LED PB1     // PB0 or PB1
 
 const unsigned char cycle[] PROGMEM = {
       3,   6,   9,  15,  23,  31,  41,  53,  64,  75,  86,  99, 108, 119, 130, 140,

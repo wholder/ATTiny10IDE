@@ -94,7 +94,8 @@ public class CodeEditPane extends JPanel implements DocumentListener {
     doLayout();
     // Note: must call setContentType(), setFont() after doLayout() or no line numbers and small font
     codePane.setContentType("text/cpp");
-    codePane.setFont(new Font("Courier", Font.PLAIN, 14));
+    boolean windows = System.getProperty("os.name").toLowerCase().indexOf("win") >= 0;
+    codePane.setFont(new Font(windows ? "Consolas" : "Menlo", Font.PLAIN, 12));
     codePane.setEditable(true);
     doc = codePane.getDocument();
     doc.putProperty(PlainDocument.tabSizeAttribute, tabSize);

@@ -26,7 +26,7 @@ class ATTiny10Compiler {
     {"COMP1", "avr-g++ -ggdb -std=gnu++11 *[LOPTS]* -Wno-unknown-pragmas -Os -DF_CPU=*[CLOCK]* -mmcu=*[CHIP]* -c *[TDIR]*code.c -o *[TDIR]*code.o"},
     {"COMP2", "avr-g++ -std=gnu++11 *[LOPTS]* -Os -DF_CPU=*[CLOCK]* -mmcu=*[CHIP]* -o *[TDIR]*code.elf *[TDIR]*code.o"},
     {"TOHEX", "avr-objcopy -j .text -j .data -O ihex *[TDIR]*code.elf *[TDIR]*code.hex"},
-    {"LST",   "avr-objdump -d -S -t *[TDIR]*code.elf"},
+    {"LST",   "avr-objdump -d -S -t *[TDIR]*code.elf"},   // Note add "-l' for source path and line numbers (Warning: large lines!)
     {"SIZE",  "avr-size --format=avr --mcu=*[CHIP]* *[TDIR]*code.elf"},
   };
   private static String[][] compArduino = {
@@ -34,7 +34,7 @@ class ATTiny10Compiler {
     {"COMP2", "avr-g++ -ggdb -std=gnu++11 *[LOPTS]* -Wno-unknown-pragmas -Os -DF_CPU=*[CLOCK]* -mmcu=*[CHIP]* -c *[TDIR]*Arduino.c -o *[TDIR]*Arduino.o"},
     {"COMP3", "avr-g++ -std=gnu++11 *[LOPTS]* -Os -DF_CPU=*[CLOCK]* -mmcu=*[CHIP]* -o *[TDIR]*code.elf *[TDIR]*code.o *[TDIR]*Arduino.o"},
     {"TOHEX", "avr-objcopy -j .text -j .data -O ihex *[TDIR]*code.elf *[TDIR]*code.hex"},
-    {"LST",   "avr-objdump -d -S -t *[TDIR]*code.elf"},
+    {"LST",   "avr-objdump -d -S -t *[TDIR]*code.elf"},   // Note add "-l' for source path and line numbers (Warning: large lines!)
     {"SIZE",  "avr-size --format=avr --mcu=*[CHIP]* *[TDIR]*code.elf"},
   };
   private static Map<String,Integer>  fuses = new HashMap<>();
