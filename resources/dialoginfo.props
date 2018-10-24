@@ -1,0 +1,26 @@
+SELFPRGEN:<b>Enable Self-Programming</b><br/>Provides a mechanism for downloading and uploading program code by the MCU itself.  This \
+feature is normally used when implementing a bootloader.
+RSTDISBL:<b>Disable External RESET Pin</b><br/>Warning - Enabling this fuse will disable the external RESET pin and prevent further programming \
+of the chip using normal, In-Circuit programming and will require the use of a High Voltage Programmer, or Fuse Reset Programmer.
+DWEN:<b>Enable DebugWIRE</b><br/>Warning - Enabling this fuse will disable further programming of the chip using \
+normal, In-Circuit programming and will require the use of a High Voltage Programmer, or Fuse Reset Programmer.
+SPIEN:<b>Enable In-Circuit Serial Program and Data Download</b><br/>Warning - Disabling this fuse will prevent further programming \
+of the chip using normal In-Circuit programming and will require the use of a High Voltage Programmer, or Fuse Reset Programmer.
+WDTON:<b>Set Watchdog Timer Always On</b><br/>If programmed, this fuse forces the Watchdog Timer to System Reset mode. With the fuse \
+programmed and the WDE bit and WDIE bit are locked to 1 and 0 respectively.
+EESAVE:<b>Preserve EEPROM on Chip Erase</b><br/>when this fuse is set, the contents of the EEPROM will not be erased when new code is \
+programmed into the Flash memory.
+BODLEVEL:<b>Set On-chip Brown-out Detection (BOD) Voltage</b><br/>The On-chip Brown-out Detection (BOD) circuit for monitors the VCC level \
+during operation by comparing it to a fixed trigger level. The trigger level for the BOD can be selected by the BODLEVEL Fuses. \
+When the BOD is enabled, and VCC decreases to a value below the trigger level, the Brown-out Reset is immediately activated.
+CKDIV8:<b>Clock Divided by 8</b><br/>Set the processor to run at 1/8 the speed of the system oscillator.
+CKOUT:<b>Enable Clock Output</b><br/>When this fuse is enabled the system clock is putput on the CLKO pin.
+SUT:<b>Sets Start-up Time Delay</b><br/>Note: the effect of these fuses varies depending upon the value selected for the CKSEL fuses.
+CKSEL:<b>Selects Clock Source</b><br/>The CKSEL, in combination with the SUT fuses, select the source of the system clock as well as \
+the startup delay after power on, or reset.  <b>Warning</b>: some settings, such as selecting an external oscillaor as the clock source \
+when no is present can disable further programming of the chip.
+PREPROCESS:<b>Enable Preprocessor Menu</b><br/>When enabled, a new menu option named "Run Preprocessor" is added to the "Actions" Menu. \
+This develeoper feature can be used to run the source code through the C++ Preprocessor and then through the automatic prototype \
+generator code and then display the result in the Listings pane.
+GEN_PROTOS:<b>Enable Automatic Prototype Geneeration</b><br/>When this experimental feature enabled, the "Build" operation attempts to \
+automatically generate function prototypes for all functions in the main source file before running the compiler.

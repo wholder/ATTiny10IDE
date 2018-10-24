@@ -10,6 +10,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#pragma clock 250000        // Set clock to 256 kHz
 #include "Arduino.h"
 
 #define LED PB1     // PB0 or PB1
@@ -26,8 +27,6 @@ const unsigned char cycle[] PROGMEM = {
 unsigned char idx = 0;
 
 void setup () {
-  // Set clock to 256 kHz
-  clockSpeed(CLK_250000);
   // Enable Sleep Mode
   SMCR = (1 << SE);
   // Enable Global Interrupts

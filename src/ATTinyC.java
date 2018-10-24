@@ -5,6 +5,7 @@ import java.io.*;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -18,7 +19,10 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 
 import jssc.SerialNativeInterface;
 
-  /**
+import static javax.swing.JOptionPane.INFORMATION_MESSAGE;
+import static javax.swing.JOptionPane.showMessageDialog;
+
+/**
    *  An IDE for ATTiny10 Series MIcrocontrolles
    *  Author: Wayne Holder, 2017
    *  License: MIT (https://opensource.org/licenses/MIT)
@@ -34,7 +38,9 @@ import jssc.SerialNativeInterface;
    */
 
 public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
-  private static boolean            windows = System.getProperty("os.name").toLowerCase().indexOf("win") >= 0;
+  private static final String       VERSION = "1.0 beta";
+  private static final String       fileSep =  System.getProperty("file.separator");
+  private static boolean            windows = System.getProperty("os.name").toLowerCase().contains("win");
   private static Font               tFont = new Font(windows ? "Consolas" : "Menlo", Font.PLAIN, 12);
   private static int                cmdMask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMask();
   private static KeyStroke          OPEN_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_O, cmdMask) ;
@@ -42,29 +48,49 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private static KeyStroke          QUIT_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_Q, cmdMask) ;
   private static KeyStroke          BUILD_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_B, cmdMask) ;
   private static KeyStroke          PROG_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_P, cmdMask) ;
+  private static KeyStroke          FUSE_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_F, cmdMask) ;
   private static KeyStroke          VCC_ON_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_V, cmdMask) ;
   private static KeyStroke          VCC_OFF_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_X, cmdMask) ;
-  private static Map<String,String> progProtocol = new HashMap<>();
-  private enum                      Tab {SRC(0), LIST(1), HEX(2), PROG(3), INFO(4); final int num; Tab(int num) {this.num = num;}};
+  static Map<String,ChipInfo>       progProtocol = new HashMap<>();
+  private enum                      Tab {SRC(0), LIST(1), HEX(2), PROG(3), INFO(4); final int num; Tab(int num) {this.num = num;}}
   private String                    osName = System.getProperty("os.name").toLowerCase();
   private JTabbedPane               tabPane;
   private JFileChooser              fc = new JFileChooser();
   private CodeEditPane              codePane;
   private JTextArea                 listPane, hexPane, progPane, infoPane;
   private JMenuItem                 saveMenu;
-  private String                    tmpDir, tmpExe, chip;
+  private String                    tmpDir, tmpExe, chip, editFile;
   private boolean                   directHex, compiled, codeDirty;
   private File                      cFile;
-  private ATTiny10Compiler          compiler = new ATTiny10Compiler();
   private transient Preferences     prefs = Preferences.userNodeForPackage(getClass());
+  private String                    icspProgrammer = prefs.get("icsp_programmer", "avrisp2");
   private transient JSSCPort        jPort;
+  private Map<String, String>       compileMap;
+
+  static class ChipInfo {
+    String  prog, lib, fuses;
+    boolean useCore;
+
+    ChipInfo (String prog, String lib, String fuses, boolean useCore) {
+      this.prog = prog;
+      this.lib = lib;
+      this.fuses = fuses;
+      this.useCore = useCore;
+    }
+  }
 
   static {
     // List of ATtiny types and the Protocol used to Program them.
-    progProtocol.put("attiny4", "TPI");
-    progProtocol.put("attiny5", "TPI");
-    progProtocol.put("attiny9", "TPI");
-    progProtocol.put("attiny10", "TPI");
+    progProtocol.put("attiny4",  new ChipInfo("TPI", "tiny10", "FF", false));
+    progProtocol.put("attiny5",  new ChipInfo("TPI", "tiny10", "FF", false));
+    progProtocol.put("attiny9",  new ChipInfo("TPI", "tiny10", "FF", false));
+    progProtocol.put("attiny10", new ChipInfo("TPI", "tiny10", "FF", false));
+    progProtocol.put("attiny24", new ChipInfo("ICSP", "tinyX4", "l:60,h:DF,e:FF", true));
+    progProtocol.put("attiny44", new ChipInfo("ICSP", "tinyX4", "l:60,h:DF,e:FF", true));
+    progProtocol.put("attiny84", new ChipInfo("ICSP", "tinyX4", "l:60,h:DF,e:FF", true));
+    progProtocol.put("attiny25", new ChipInfo("ICSP", "tinyX5", "l:60,h:DF,e:FF", true));
+    progProtocol.put("attiny45", new ChipInfo("ICSP", "tinyX5", "l:60,h:DF,e:FF", true));
+    progProtocol.put("attiny85", new ChipInfo("ICSP", "tinyX5", "l:60,h:DF,e:FF", true));
   }
 
   {
@@ -82,10 +108,46 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     fc.setAcceptAllFileFilterUsed(true);
     fc.setMultiSelectionEnabled(false);
     fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
+    prefs.putBoolean("enable_preprocessing", prefs.getBoolean("enable_preprocessing", false));
+    prefs.putBoolean("gen_prototypes", prefs.getBoolean("gen_prototypes", false));
   }
 
   private void selectTab (Tab tab) {
     tabPane.setSelectedIndex(tab.num);
+  }
+
+  private void setDirtyIndicator (boolean dirty) {
+    this.setTitle("ATTinyC: " + (editFile != null ? editFile : "") + (dirty ? " [unsaved]" : ""));
+  }
+
+  private void showAboutBox () {
+    ImageIcon icon = null;
+    try {
+      icon = new ImageIcon(getClass().getResource("images/tiny10-128x128.jpg"));
+    } catch (Exception ex) {
+      ex.printStackTrace();
+    }
+    showMessageDialog(this,
+      "By: Wayne Holder\n" +
+        "tmpDir:  " + tmpDir + "\n" +
+        "tmpExy:  " + tmpExe + "\n" +
+        "Java Simple Serial Connector: " + SerialNativeInterface.getLibraryVersion() + "\n" +
+        "JSSC Native Code DLL Version: " + SerialNativeInterface.getNativeLibraryVersion() + "\n",
+      "ATtiny10IDE " + VERSION, INFORMATION_MESSAGE,  icon);
+  }
+
+  private void showPreferences () {
+    ParmDialog.ParmItem[][] parmSet = {{
+      new ParmDialog.ParmItem("Enable Preprocessing (Developer){*[PREPROCESS]*}", prefs.getBoolean("enable_preprocessing", true)),
+      new ParmDialog.ParmItem("Generate Prototypes (Experimental){*[GEN_PROTOS]*}", prefs.getBoolean("gen_prototypes", true)),
+    }};
+    ParmDialog dialog = new ParmDialog(parmSet, null, new String[] {"Save", "Cancel"});
+    dialog.setLocationRelativeTo(this);
+    dialog.setVisible(true);              // Note: this call invokes dialog
+    if (dialog.wasPressed()) {
+      prefs.putBoolean("enable_preprocessing",  parmSet[0][0].value);
+      prefs.putBoolean("gen_prototypes",        parmSet[0][1].value);
+    }
   }
 
   private ATTinyC () {
@@ -97,7 +159,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     add("Center", tabPane);
     codePane = new CodeEditPane(prefs);
     codePane.setCodeChangeListener(() -> {
-      codeDirty = true;
+      setDirtyIndicator(codeDirty = true);
       compiled = false;
       listPane.setForeground(Color.red);
       hexPane.setForeground(Color.red);
@@ -106,8 +168,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     listPane = getScrollingTextPage(tabPane, "Listing", "Select this pane to view the assembler listing");
     hexPane = getScrollingTextPage(tabPane, "Hex Output", "Intel Hex Output file for programmer");
     progPane = getScrollingTextPage(tabPane, "Programmer", "Records communication with Arduino-based programmer");
-    // Add System Info Tab
-    infoPane = getScrollingTextPage(tabPane, "System Info", "Displays information about System OS");
+    infoPane = getScrollingTextPage(tabPane, "Error Info", "Displays additional information about errors");
     infoPane.append("os.name: " + osName + "\n");
     // Add menu bar and menus
     JMenuBar menuBar = new JMenuBar();
@@ -115,16 +176,19 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     JMenu fileMenu = new JMenu("File");
     JMenuItem mItem;
     fileMenu.add(mItem = new JMenuItem("About"));
-    mItem.addActionListener(e -> JOptionPane.showMessageDialog(this, "By: Wayne Holder",
-        "ATtiny10IDE", JOptionPane.PLAIN_MESSAGE, new ImageIcon(getClass().getResource("images/tiny10-128x128.jpg"))));
+    mItem.addActionListener(e -> showAboutBox());
+    fileMenu.add(mItem = new JMenuItem("Preferences"));
+    mItem.addActionListener(e -> showPreferences());
     fileMenu.addSeparator();
     fileMenu.add(mItem = new JMenuItem("New"));
     mItem.addActionListener(e -> {
-      if (!codeDirty  ||  discardChanges()) {
-        codePane.setText("");
+      if (codePane.getText().length() == 0 || discardChanges()) {
         codePane.setForeground(Color.black);
+        codePane.setText("");
         directHex = false;
         compiled = false;
+        setDirtyIndicator(codeDirty = false);
+        selectTab(Tab.SRC);
         cFile = null;
       }
     });
@@ -137,22 +201,23 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           try {
             File oFile = fc.getSelectedFile();
             prefs.put("default.extension", ((FileNameExtensionFilter) fc.getFileFilter()).getExtensions()[0]);
-            String tmp = getFile(oFile);
+            String tmp = Utility.getFile(oFile);
             if (tmp.contains(":00000001FF")) {
               if (!tmp.startsWith(":020000020000FC")) {
                 tmp = ":020000020000FC\n" + tmp;
               }
-              hexPane.setText(tmp);
               hexPane.setForeground(Color.black);
+              hexPane.setText(tmp);
               selectTab(Tab.HEX);
               directHex = true;
             } else {
               cFile = oFile;
-              codePane.setText(tmp);
               codePane.setForeground(Color.black);
-              this.setTitle("ATTinyC: " + oFile.getAbsolutePath());
-              codeDirty = false;
+              codePane.setText(tmp);
+              prefs.put("default.dir", editFile = oFile.getAbsolutePath());
+              setDirtyIndicator(codeDirty = false);
               directHex = false;
+              selectTab(Tab.SRC);
               saveMenu.setEnabled(true);
             }
             prefs.put("default.dir", oFile.getAbsolutePath());
@@ -166,8 +231,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     saveMenu.setAccelerator(SAVE_KEY);
     saveMenu.setEnabled(false);
     saveMenu.addActionListener(e -> {
-      saveFile(cFile, codePane.getText());
-      codeDirty = false;
+      Utility.saveFile(cFile, codePane.getText());
+      setDirtyIndicator(codeDirty = false);
     });
     fileMenu.add(mItem = new JMenuItem("Save As..."));
     mItem.addActionListener(e -> {
@@ -177,15 +242,14 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         prefs.put("default.extension", ((FileNameExtensionFilter) fc.getFileFilter()).getExtensions()[0]);
         if (sFile.exists()) {
           if (doWarningDialog("Overwrite Existing file?")) {
-            saveFile(sFile, codePane.getText());
+            Utility.saveFile(sFile, codePane.getText());
           }
         } else {
-          saveFile(sFile, codePane.getText());
+          Utility.saveFile(sFile, codePane.getText());
         }
         cFile = sFile;
-        prefs.put("default.dir", sFile.getAbsolutePath());
-        this.setTitle("ATTinyC: " + sFile.getAbsolutePath());
-        codeDirty = false;
+        prefs.put("default.dir", editFile = sFile.getAbsolutePath());
+        setDirtyIndicator(codeDirty = false);
         saveMenu.setEnabled(true);
       }
     });
@@ -212,29 +276,43 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         if (fName.endsWith(".asm")) {
           ATTiny10Assembler asm = new ATTiny10Assembler();
           asm.assemble(codePane.getText());
-          listPane.setText(asm.getListing());
           listPane.setForeground(Color.black);
-          hexPane.setText(asm.getHex());
+          listPane.setText(asm.getListing());
           hexPane.setForeground(Color.black);
+          hexPane.setText(asm.getHex());
           compiled = true;
         } else {
+          // Reinstall toolchain if there was an error last time we tried to build
+          installToolchain(prefs.getBoolean("reload_toolchain", false));
           Thread cThread = new Thread(() -> {
             try {
-              boolean doAsm = fName.endsWith(".s");
-              Map<String, String> ret = compiler.compile(codePane.getText(), tmpExe, tmpDir, doAsm);
-              if (ret.containsKey("ERR")) {
-                listPane.setText(ret.get("ERR"));
+              listPane.setForeground(Color.black);
+              listPane.setText("");
+              Map<String,String> tags = new HashMap<>();
+              tags.put("TDIR", tmpDir);
+              tags.put("TEXE", tmpExe);
+              tags.put("IDIR", tmpExe + "avr" + fileSep + "include" + fileSep);
+              tags.put("FNAME", fName);
+              if (prefs.getBoolean("gen_prototypes", false)) {
+                tags.put("PREPROCESS", "GENPROTOS");
+              }
+              compileMap = ATTinyCompiler.compile(codePane.getText(), tags, this);
+              if (compileMap.containsKey("ERR")) {
                 listPane.setForeground(Color.red);
+                listPane.setText(compileMap.get("ERR"));
+                //prefs.putBoolean("reload_toolchain", true);
                 compiled = false;
               } else {
-                listPane.setText(ret.get("INFO") + "\n\n" + ret.get("SIZE") + ret.get("LST"));
                 listPane.setForeground(Color.black);
-                hexPane.setText(ret.get("HEX"));
+                listPane.setText(compileMap.get("INFO") + "\n\n" + compileMap.get("SIZE") + compileMap.get("LST"));
                 hexPane.setForeground(Color.black);
-                chip = ret.get("CHIP");
+                hexPane.setText(compileMap.get("HEX"));
+                chip = compileMap.get("CHIP");
                 compiled = true;
               }
             } catch (Exception ex) {
+              prefs.putBoolean("reload_toolchain", true);
+              ex.printStackTrace();
               infoPane.append("Stack Trace:\n");
               ByteArrayOutputStream bOut = new ByteArrayOutputStream();
               PrintStream pOut = new PrintStream(bOut);
@@ -250,97 +328,143 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         showErrorDialog("Please save file first!");
       }
     });
-    actions.add(mItem = new JMenuItem("Program Device"));
-    mItem.setAccelerator(PROG_KEY);
+    JMenuItem preprocess = new JMenuItem("Run Preprocessor");
+    actions.add(preprocess);
+    prefs.addPreferenceChangeListener(evt -> preprocess.setVisible(prefs.getBoolean("enable_preprocessing", false)));
+    preprocess.addActionListener(e -> {
+      if (cFile != null) {
+        String fName = cFile.getName().toLowerCase();
+        if (fName.endsWith(".cpp") || fName.endsWith(".c")) {
+          // Reinstall toolchain if there was an error last time we tried to build
+          installToolchain(prefs.getBoolean("reload_toolchain", false));
+          Thread cThread = new Thread(() -> {
+            try {
+              listPane.setForeground(Color.black);
+              listPane.setText("");
+              Map<String,String> tags = new HashMap<>();
+              tags.put("TDIR", tmpDir);
+              tags.put("TEXE", tmpExe);
+              tags.put("IDIR", tmpExe + "avr" + fileSep + "include" + fileSep);
+              tags.put("FNAME", fName);
+              tags.put("PREPROCESS", "PREONLY");
+              compileMap = ATTinyCompiler.compile(codePane.getText(), tags, this);
+              if (compileMap.containsKey("ERR")) {
+                listPane.setForeground(Color.red);
+                listPane.setText(compileMap.get("ERR"));
+                compiled = false;
+              } else {
+                listPane.setForeground(Color.black);
+                listPane.setText(compileMap.get("PRE"));
+              }
+            } catch (Exception ex) {
+              ex.printStackTrace();
+              infoPane.append("Stack Trace:\n");
+              ByteArrayOutputStream bOut = new ByteArrayOutputStream();
+              PrintStream pOut = new PrintStream(bOut);
+              ex.printStackTrace(pOut);
+              pOut.close();
+              infoPane.append(bOut.toString() + "\n");
+            }
+          });
+          cThread.start();
+        } else {
+          listPane.setText("Must be .c or .cpp file");
+        }
+        selectTab(Tab.LIST);
+      } else {
+        showErrorDialog("Please save file first!");
+      }
+    });
+    /*
+     *    TPI Programmer Menus
+     */
+    JMenu tpiProg = new JMenu("TPI Programmer");
+    actions.add(tpiProg);
+    tpiProg.add(mItem = new JMenuItem("Program Device"));
     mItem.addActionListener(e -> {
       try {
         if (canProgram()) {
           String hex = hexPane.getText();
-          if (jPort != null && jPort.isOpen()) {
-            selectTab(Tab.PROG);
-            progPane.append("\nProgramming " + cFile.getName());
-            jPort.sendString("\nD\n" + hex + "\n");
-          } else {
-            showErrorDialog("Serial port not selected!");
+          String protocol = progProtocol.get(chip.toLowerCase()).prog;
+          switch (protocol) {
+          case "TPI":
+            if (jPort != null && jPort.isOpen()) {
+              selectTab(Tab.PROG);
+              progPane.append("\nProgramming " + cFile.getName());
+              jPort.sendString("\nD\n" + hex + "\n");
+            } else {
+              showErrorDialog("Serial port not selected!");
+            }
+            break;
+          default:
+            showErrorDialog("TPI Programming is not complatible with selected device");
+            break;
           }
         }
       } catch (Exception ex) {
         showErrorDialog(ex.getMessage());
       }
     });
-    actions.add(mItem = new JMenuItem("Power On"));
-    mItem.setAccelerator(VCC_ON_KEY);
-    mItem.addActionListener(e -> {
-      try {
-        jPort.sendString("V\n");
-
-      } catch (Exception ex) {
-        showErrorDialog(ex.getMessage());
-      }
-    });
-    actions.add(mItem = new JMenuItem("Power Off"));
-    mItem.setAccelerator(VCC_OFF_KEY);
-    mItem.addActionListener(e -> {
-      try {
-        jPort.sendString("X\n");
-
-      } catch (Exception ex) {
-        showErrorDialog(ex.getMessage());
-      }
-    });
-    actions.addSeparator();
-    actions.add(mItem = new JMenuItem("Generate Arduino Programmer Code"));
+    tpiProg.add(mItem = new JMenuItem("Generate Arduino Programmer Code"));
     mItem.addActionListener(e -> {
       if (canProgram()) {
-        try {
-          String genCode = new String(getFile("res:ATTiny10GeneratedProgrammer.ino"));
-          String hex = hexPane.getText();
-          CodeImage image = parseIntelHex(hex);
-          byte[] code = image.data;
-          StringBuilder buf = new StringBuilder();
-          boolean first = true;
-          for (int ii = 0; ii < code.length; ii++) {
-            if ((ii & 0x0F) == 0) {
-              buf.append(first ? "\n  " : ",\n  ");
-              first = false;
-            } else {
-              buf.append(", ");
-            }
-            buf.append("0x");
-            buf.append(ATTiny10Compiler.hexChar((byte) (code[ii] >> 4)));
-            buf.append(ATTiny10Compiler.hexChar(code[ii]));
-          }
-          char fuseCode = ATTiny10Compiler.hexChar(image.fuses);
-          String outCode = genCode.replace("/*[CODE]*/", buf.toString()).replace("/*[FUSE]*/", Character.toString(fuseCode));
-          outCode = outCode.replace("/*[NAME]*/", cFile.getName());
-          String genFile = cFile.getAbsolutePath();
-          int dot = genFile.lastIndexOf(".");
-          if (dot > 0) {
-            genFile = genFile.substring(0, dot) + "-prog.ino";
-          }
-          JFileChooser jFileChooser = new JFileChooser();
-          jFileChooser.setSelectedFile(new File(genFile));
-          if (jFileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            File sFile = jFileChooser.getSelectedFile();
-            if (sFile.exists()) {
-              if (doWarningDialog("Overwrite Existing file?")) {
-                saveFile(sFile, outCode);
+        String protocol = progProtocol.get(chip.toLowerCase()).prog;
+        switch (protocol) {
+        case "TPI":
+          try {
+            String genCode = Utility.getFile("res:ATTiny10GeneratedProgrammer.ino");
+            String hex = hexPane.getText();
+            CodeImage image = parseIntelHex(hex);
+            byte[] code = image.data;
+            StringBuilder buf = new StringBuilder();
+            boolean first = true;
+            for (int ii = 0; ii < code.length; ii++) {
+              if ((ii & 0x0F) == 0) {
+                buf.append(first ? "\n  " : ",\n  ");
+                first = false;
+              } else {
+                buf.append(", ");
               }
-            } else {
-              saveFile(sFile, outCode);
+              buf.append("0x");
+              buf.append(Utility.hexChar((byte) (code[ii] >> 4)));
+              buf.append(Utility.hexChar(code[ii]));
             }
+            char fuseCode = Utility.hexChar(image.fuses);
+            String outCode = genCode.replace("/*[CODE]*/", buf.toString()).replace("/*[FUSE]*/", Character.toString(fuseCode));
+            outCode = outCode.replace("/*[NAME]*/", cFile.getName());
+            String genFile = cFile.getAbsolutePath();
+            int dot = genFile.lastIndexOf(".");
+            if (dot > 0) {
+              genFile = genFile.substring(0, dot) + "-prog.ino";
+            }
+            JFileChooser jFileChooser = new JFileChooser();
+            jFileChooser.setSelectedFile(new File(genFile));
+            if (jFileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+              File sFile = jFileChooser.getSelectedFile();
+              if (sFile.exists()) {
+                if (doWarningDialog("Overwrite Existing file?")) {
+                  Utility.saveFile(sFile, outCode);
+                }
+              } else {
+                Utility.saveFile(sFile, outCode);
+              }
+            }
+          } catch (Exception ex) {
+            showErrorDialog(ex.getMessage());
           }
-        } catch (Exception ex) {
-          showErrorDialog(ex.getMessage());
+          break;
+        case "ICSP":
+          showErrorDialog("Protocol '" + protocol + " not currently supported");
+          break;
         }
       }
     });
-    actions.add(mItem = new JMenuItem("Calibrate Clock"));
+    tpiProg.add(mItem = new JMenuItem("Calibrate Clock"));
     mItem.addActionListener(e -> {
       try {
         if (jPort != null && jPort.isOpen()) {
           selectTab(Tab.PROG);
-          String hex = new String(getFile("res:clockcal.hex"));
+          String hex = Utility.getFile("res:clockcal.hex");
           progPane.append("\nProgramming Clock Code");
           jPort.sendString("\nD\n" + hex + "\n");
           jPort.sendString("M\n");
@@ -351,7 +475,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         showErrorDialog(ex.getMessage());
       }
     });
-    actions.add(mItem = new JMenuItem("Device Signature"));
+    tpiProg.add(mItem = new JMenuItem("Device Signature"));
     mItem.addActionListener(e -> {
       try {
         if (jPort != null && jPort.isOpen()) {
@@ -364,30 +488,230 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         showErrorDialog(ex.getMessage());
       }
     });
+    tpiProg.add(mItem = new JMenuItem("Power On"));
+    mItem.addActionListener(e -> {
+      try {
+        jPort.sendString("V\n");
+
+      } catch (Exception ex) {
+        showErrorDialog(ex.getMessage());
+      }
+    });
+    tpiProg.add(mItem = new JMenuItem("Power Off"));
+    mItem.addActionListener(e -> {
+      try {
+        jPort.sendString("X\n");
+
+      } catch (Exception ex) {
+        showErrorDialog(ex.getMessage());
+      }
+    });
+    /*
+     *    ICSP Programmer Menus
+     */
+    JMenu icpProg = new JMenu("ICSP Programmer");
+    actions.add(icpProg);
+    icpProg.add(mItem = new JMenuItem("Program Device"));
+    mItem.addActionListener(e -> {
+      try {
+        if (canProgram()) {
+          String hex = hexPane.getText();
+          String protocol = progProtocol.get(chip.toLowerCase()).prog;
+          switch (protocol) {
+          case "ICSP":
+            // Copy contents of "hex" pane to temp file with .hex extension
+            selectTab(Tab.PROG);
+            try {
+              FileOutputStream fOut = new FileOutputStream(tmpDir + "code.hex");
+              fOut.write(hex.getBytes(StandardCharsets.UTF_8));
+              fOut.close();
+            } catch (IOException ex) {
+              progPane.append("\nError: " + ex.toString());
+              break;
+            }
+            // Use AVRDUDE to program chip
+            try {
+              Map<String,String> tags = new HashMap<>();
+              tags.put("PROG", icspProgrammer);
+              tags.put("TDIR", tmpDir);
+              tags.put("CHIP", chip);
+              String exec = Utility.replaceTags("avrdude -Pusb -c *[PROG]* -p *[CHIP]* -U flash:w:*[TDIR]*code.hex", tags);
+              String cmd = tmpExe + "bin" + System.getProperty("file.separator") + exec;
+              System.out.println("Run: " + cmd);
+              Process proc = Runtime.getRuntime().exec(cmd);
+              String ret = Utility.runCmd(proc);
+              int retVal = proc.waitFor();
+              if (retVal != 0) {
+                progPane.append("Error: " + ret + "\n");
+              } else {
+                progPane.append(ret + "\n");
+              }
+            } catch (IllegalStateException ex) {
+              ex.printStackTrace();
+            }
+            break;
+          default:
+            showErrorDialog("ICSP Programming is not complatible with selected device");
+            break;
+         }
+        }
+      } catch (Exception ex) {
+        showErrorDialog(ex.getMessage());
+      }
+    });
+    icpProg.add(mItem = new JMenuItem("Program Fuses"));
+    mItem.addActionListener(e -> {
+      ChipInfo chipInfo = progProtocol.get(chip.toLowerCase());
+      try {
+        if (canProgram()) {
+          switch (chipInfo.prog) {
+          case "TPI":
+            selectTab(Tab.PROG);
+            showErrorDialog("TPI not currently supported");
+            break;
+          case "ICSP":
+            selectTab(Tab.PROG);
+            progPane.setText("");
+            Map<String,String> fuseDefaults = Utility.csvToMap(chipInfo.fuses);
+            int lFuse = Integer.decode(Utility.choose(compileMap.get("PRAGMA.LFUSE"), "0x" + fuseDefaults.get("l")));
+            int hFuse = Integer.decode(Utility.choose(compileMap.get("PRAGMA.HFUSE"), "0x" + fuseDefaults.get("h")));
+            int eFuse = Integer.decode(Utility.choose(compileMap.get("PRAGMA.EFUSE"), "0x" + fuseDefaults.get("e")));
+            ParmDialog.ParmItem[][] parmSet = {
+              {
+                new ParmDialog.ParmItem("CKDIV8{*[CKDIV8]*}",       !Utility.bit(lFuse, 7)),
+                new ParmDialog.ParmItem("CKOUT{*[CKOUT]*}",         !Utility.bit(lFuse, 6)),
+                new ParmDialog.ParmItem("SUT1{*[SUT]*}",            !Utility.bit(lFuse, 5)),
+                new ParmDialog.ParmItem("SUT0{*[SUT]*}",            !Utility.bit(lFuse, 4)),
+                new ParmDialog.ParmItem("CKSEL3{*[CKSEL]*}",        !Utility.bit(lFuse, 3)),
+                new ParmDialog.ParmItem("CKSEL2{*[CKSEL]*}",        !Utility.bit(lFuse, 2)),
+                new ParmDialog.ParmItem("CKSEL1{*[CKSEL]*}",        !Utility.bit(lFuse, 1)),
+                new ParmDialog.ParmItem("CKSEL0{*[CKSEL]*}",        !Utility.bit(lFuse, 0)),
+              }, {
+                new ParmDialog.ParmItem("!RSTDISBL{*[RSTDISBL]*}",  !Utility.bit(hFuse, 7)),
+                new ParmDialog.ParmItem("!DWEN{*[DWEN]*}",          !Utility.bit(hFuse, 6)),
+                new ParmDialog.ParmItem("!SPIEN{*[SPIEN]*}",        !Utility.bit(hFuse, 5)),
+                new ParmDialog.ParmItem("WDTON{*[WDTON]*}",         !Utility.bit(hFuse, 4)),
+                new ParmDialog.ParmItem("EESAVE{*[EESAVE]*}",       !Utility.bit(hFuse, 3)),
+                new ParmDialog.ParmItem("BODLEVEL2{*[BODLEVEL]*}",  !Utility.bit(hFuse, 2)),
+                new ParmDialog.ParmItem("BODLEVEL1{*[BODLEVEL]*}",  !Utility.bit(hFuse, 1)),
+                new ParmDialog.ParmItem("BODLEVEL0{*[BODLEVEL]*}",  !Utility.bit(hFuse, 0)),
+            }, {
+                new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 7)),
+                new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 6)),
+                new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 5)),
+                new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 4)),
+                new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 3)),
+                new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 2)),
+                new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 1)),
+                new ParmDialog.ParmItem("SELFPRGEN{*[SELFPRGEN]*}", !Utility.bit(eFuse, 0)),
+            }
+            };
+            String[] tabs = {"LFUSE", "HFUSE", "EFUSE"};
+            ParmDialog dialog = new ParmDialog(parmSet, tabs, new String[] {"Program", "Cancel"});
+            dialog.setLocationRelativeTo(this);
+            dialog.setVisible(true);              // Note: this call invokes dialog
+            if (dialog.wasPressed()) {
+              // Read current fuse settings
+              Map<String, String> tags = new HashMap<>();
+              tags.put("PROG", icspProgrammer);
+              tags.put("TDIR", tmpDir);
+              tags.put("CHIP", chip);
+              String exec = Utility.replaceTags("avrdude -Pusb -c *[PROG]* -p *[CHIP]* -U lfuse:r:*[TDIR]*lfuse.hex:h " +
+                "-U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
+              String cmd = tmpExe + "bin" + System.getProperty("file.separator") + exec;
+              System.out.println("Run: " + cmd);
+              Process proc = Runtime.getRuntime().exec(cmd);
+              String ret = Utility.runCmd(proc);
+              int retVal = proc.waitFor();
+              if (retVal != 0) {
+                progPane.append("Error: " + ret + "\n");
+                return;
+              }
+              int[] chipFuses = {
+                Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*lfuse.hex", tags)).trim()),
+                Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*hfuse.hex", tags)).trim()),
+                Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*efuse.hex", tags)).trim())
+              };
+              StringBuilder out = new StringBuilder();
+              for (int ii = 0; ii < chipFuses.length; ii++) {
+                int dFuse = dialog.fuseSet[ii].fuseValue;
+                int cFuse = chipFuses[ii];
+                tags.put("FUSE", tabs[ii].toLowerCase());
+                tags.put("FVAL", "0x" + Integer.toHexString(dFuse).toUpperCase());
+                if (dFuse != cFuse) {
+                  // Update fuse value
+                  exec = Utility.replaceTags("avrdude -Pusb -c *[PROG]* -p *[CHIP]* -U *[FUSE]*:w:*[FVAL]*:m", tags);
+                  cmd = tmpExe + "bin" + System.getProperty("file.separator") + exec;
+                  System.out.println("Run: " + cmd);
+                  proc = Runtime.getRuntime().exec(cmd);
+                  ret = Utility.runCmd(proc);
+                  retVal = proc.waitFor();
+                  if (retVal != 0) {
+                    progPane.append("Error: " + ret + "\n");
+                    return;
+                  } else {
+                    out.append(ret);
+                  }
+                  System.out.println(tabs[ii] + " from 0x" + Integer.toHexString(cFuse).toUpperCase() +
+                                    " to 0x" + Integer.toHexString(dFuse).toUpperCase());
+                } else {
+                  out.append("Leaving ").append(tags.get("FUSE")).append(" unchanged at ").append(tags.get("FVAL")).append("\n");
+                }
+                progPane.setText(out.toString());
+              }
+            } else {
+              System.out.println("Cancel");
+            }
+          }
+        }
+      } catch (Exception ex) {
+        ex.printStackTrace();
+      }
+    });
+    actions.addSeparator();
     actions.add(mItem = new JMenuItem("Reinstall Toolchain"));
     mItem.addActionListener(e -> installToolchain(true));
     menuBar.add(actions);
     // Add Settings menu
     JMenu settings = new JMenu("Settings");
-    settings.setEnabled(false);
-    Thread oprtThread = new Thread(() -> {
+    menuBar.add(settings);
+    JMenu tpiSettings = new JMenu("TPI Programmer");
+    settings.add(tpiSettings);
+    tpiSettings.setEnabled(false);
+    Thread portThread = new Thread(() -> {
       // Add "Port" and "Baud" Menus to MenuBar
       try {
         jPort = new JSSCPort(prefs);
-        settings.add(jPort.getPortMenu());
-        settings.add(jPort.getBaudMenu());
+        tpiSettings.add(jPort.getPortMenu());
+        tpiSettings.add(jPort.getBaudMenu());
         jPort.setRXHandler(this);
       } catch (Exception ex) {
         ex.printStackTrace();
       } finally {
-        settings.setEnabled(true);
+        tpiSettings.setEnabled(true);
       }
     });
-    oprtThread.start();
-    menuBar.add(settings);
+    portThread.start();
+    JMenu icspProg = new JMenu("ICSP Programmer");
+    try {
+      Map<String,String> pgrmrs = Utility.toTreeMap(Utility.getResourceMap("icsp_programmers.props"));
+      for (String key : pgrmrs.keySet()) {
+        String val = pgrmrs.get(key);
+        JRadioButtonMenuItem item = new JRadioButtonMenuItem(val);
+        icspProg.add(item);
+        if (icspProgrammer.equals(key)) {
+          item.setSelected(true);
+        }
+        item.addActionListener(ex -> {
+          prefs.put("icsp_programmer", icspProgrammer = key);
+          System.out.println(key);
+        });
+      }
+    } catch (Exception ex) {
+      ex.printStackTrace();
+    }
+    settings.add(icspProg);
     setJMenuBar(menuBar);
-    // Disable menus unless "Source Code" tab is selected
-    tabPane.addChangeListener(evt -> fileMenu.setEnabled(((JTabbedPane) evt.getSource()).getSelectedIndex() == Tab.SRC.num));
     // Add window close handler
     addWindowListener(new WindowAdapter() {
       public void windowClosing (WindowEvent ev) {
@@ -416,16 +740,12 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     setSize(prefs.getInt("window.width", 800), prefs.getInt("window.height", 900));
     setLocation(prefs.getInt("window.x", 10), prefs.getInt("window.y", 10));
     setVisible(true);
-    installToolchain(false);
+    installToolchain(prefs.getBoolean("reload_toolchain", false));
   }
 
   private boolean canProgram () {
     if (compiled || directHex) {
-      // Check if code currently supports the protocol needed to program the chip
-      if (chip != null && "TPI".equals(progProtocol.get(chip.toLowerCase()))) {
-        return true;
-      }
-      showErrorDialog("Unable to program " + chip);
+      return true;
     } else {
       showErrorDialog("Code not built!");
     }
@@ -455,37 +775,46 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       } else {
         tmpExe = tmp.getAbsolutePath() + System.getProperty("file.separator");
       }
+      prefs.remove("reload_toolchain");
     } catch (Exception ex) {
       ex.printStackTrace();
     }
-    infoPane.append("tmpDir:  " + tmpDir + "\n");
-    infoPane.append("tmpExy:  " + tmpExe + "\n");
-    infoPane.append("Java Simple Serial Connector: " + SerialNativeInterface.getLibraryVersion() + "\n");
-    infoPane.append("JSSC Native Code DLL Version: " + SerialNativeInterface.getNativeLibraryVersion() + "\n");
   }
 
-  class ToolchainLoader extends Thread  {
-    private JDialog       frame;
-    private JProgressBar  progress;
-    private String        srcZip, tmpExe;
+  static class ProgressBar extends JFrame {
+    JDialog       frame;
+    JProgressBar  progress;
 
-    ToolchainLoader (JFrame comp, String srcZip, String tmpExe) {
-      this.srcZip = srcZip;
-      this.tmpExe = tmpExe;
-      frame = new JDialog(comp, "Loading AVR Toolchain");
+    ProgressBar (JFrame comp, String msg) {
+      frame = new JDialog(comp);
       frame.setUndecorated(true);
       JPanel pnl = new JPanel(new BorderLayout());
       pnl.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
       frame.add(pnl, BorderLayout.CENTER);
       pnl.add(progress = new JProgressBar(), BorderLayout.NORTH);
-      JTextArea txt = new JTextArea("Loading AVR Toolchain,\n  Please wait.");
+      JTextArea txt = new JTextArea(msg + ",\n  Please wait.");
       txt.setEditable(false);
       pnl.add(txt, BorderLayout.SOUTH);
       Rectangle loc = comp.getBounds();
       frame.pack();
       frame.setLocation(loc.x + loc.width / 2 - 150, loc.y + loc.height / 2 - 150);
       frame.setVisible(true);
-      start();
+    }
+
+    void close () {
+      frame.setVisible(false);
+      frame.dispose();
+    }
+  }
+
+  class ToolchainLoader extends ProgressBar implements Runnable  {
+    private String        srcZip, tmpExe;
+
+    ToolchainLoader (JFrame comp, String srcZip, String tmpExe) {
+      super(comp, "Loading AVR Toolchain");
+      this.srcZip = srcZip;
+      this.tmpExe = tmpExe;
+      (new Thread(this)).start();
     }
 
     public void run () {
@@ -524,19 +853,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             if (entry.isDirectory()) {
               dstFile.mkdirs();
             } else {
-              ReadableByteChannel srcChan = null;
-              FileChannel dstChan = null;
-              try {
-                srcChan = Channels.newChannel(zip.getInputStream(entry));
-                dstChan = new FileOutputStream(dstFile).getChannel();
+              try (ReadableByteChannel srcChan = Channels.newChannel(zip.getInputStream(entry));
+                   FileChannel dstChan = new FileOutputStream(dstFile).getChannel()) {
                 dstChan.transferFrom(srcChan, 0, entry.getSize());
-              } finally {
-                if (srcChan != null) {
-                  srcChan.close();
-                }
-                if (dstChan != null) {
-                  dstChan.close();
-                }
               }
               // Must set permissions after file is written or it doesn't take...
               if (!dstFile.getName().contains(".")) {
@@ -552,8 +871,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       } catch (Exception ex) {
         ex.printStackTrace();
       }
-      frame.setVisible(false);
-      frame.dispose();
+      close();
     }
   }
 
@@ -574,24 +892,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     return ta;
   }
 
-  private String getFile (File file) throws IOException {
-   FileInputStream fis = new FileInputStream(file);
-   byte[] data = new byte[fis.available()];
-   fis.read(data);
-   fis.close();
-   return new String(data, "UTF8");
-  }
-  
-  private void saveFile (File file, String text) {
-    try {
-      FileOutputStream out = new FileOutputStream(file);
-      out.write(text.getBytes("UTF8"));
-      out.close();
-    } catch (IOException ex) {
-      ex.printStackTrace();
-    }
-  }
-  
   static class CodeImage {
     private byte[]  data;
     private byte    fuses;
@@ -610,8 +910,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       if (line.startsWith(":")  && line.length() > 11) {
         int state = 0, count = 0, add = 0, chk = 0;
         for (int ii = 1; ii < line.length() - 1; ii += 2) {
-          int msn = fromHex(line.charAt(ii));
-          int lsn = fromHex(line.charAt(ii + 1));
+          int msn = Utility.fromHex(line.charAt(ii));
+          int lsn = Utility.fromHex(line.charAt(ii + 1));
           int val = (msn << 4) + lsn;
           switch (state) {
           case 0:
@@ -658,7 +958,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           }
         }
       } else if (line.startsWith("*")  && line.length() == 2) {
-        fuses = (byte) fromHex(line.charAt(1));
+        fuses = (byte) Utility.fromHex(line.charAt(1));
       }
     }
     byte[] code = new byte[buf.size()];
@@ -668,41 +968,19 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     return new CodeImage(code, fuses);
   }
 
-  private static int fromHex (char cc) {
-    cc = Character.toUpperCase(cc);
-    return cc >= 'A' ? cc - 'A' + 10 : cc - '0';
-  }
-
-    private byte[] getFile (String file) throws IOException {
-      InputStream fis;
-      if (file.startsWith("res:")) {
-        fis = getClass().getResourceAsStream(file.substring(4));
-      } else {
-        fis = new FileInputStream(file);
-      }
-      if (fis != null) {
-        byte[] data = new byte[fis.available()];
-        fis.read(data);
-        fis.close();
-        return data;
-      }
-      throw new IllegalStateException("getFile() " + file + " not found");
-    }
-  
   private boolean discardChanges () {
     return doWarningDialog("Discard Changes?");
   }
 
   private void showErrorDialog (String msg) {
-    ImageIcon icon = new ImageIcon(getClass().getResource("images/warning-32x32.png"));
-    JOptionPane.showMessageDialog(this, msg, "Error", JOptionPane.PLAIN_MESSAGE,
-        icon);
+    ImageIcon icon = new ImageIcon(Utility.class.getResource("images/warning-32x32.png"));
+    showMessageDialog(this, msg, "Error", JOptionPane.PLAIN_MESSAGE, icon);
   }
 
   private boolean doWarningDialog (String question) {
-    ImageIcon icon = new ImageIcon(getClass().getResource("images/warning-32x32.png"));
+    ImageIcon icon = new ImageIcon(Utility.class.getResource("images/warning-32x32.png"));
     return JOptionPane.showConfirmDialog(this, question, "Warning", JOptionPane.YES_NO_OPTION,
-                                         JOptionPane.WARNING_MESSAGE, icon) == JOptionPane.OK_OPTION;
+      JOptionPane.WARNING_MESSAGE, icon) == JOptionPane.OK_OPTION;
   }
 
   public static void main (String[] args) {

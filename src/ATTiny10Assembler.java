@@ -8,7 +8,7 @@ import java.util.*;
  *  License: MIT (https://opensource.org/licenses/MIT)
  */
 
-public class ATTiny10Assembler implements Serializable {
+class ATTiny10Assembler implements Serializable {
   private static char[]              hex = {'0', '1', '2', '3', '4', '5', '6', '7',
                                             '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
   private static Map<String,Integer>  regToReg =  new HashMap<>();
@@ -308,7 +308,7 @@ public class ATTiny10Assembler implements Serializable {
     }
   }
 
-  public void assemble (String code) {
+  void assemble (String code) {
     StringTokenizer tok = new StringTokenizer(code, "\n\r");
     while (tok.hasMoreTokens()) {
       String line = tok.nextToken().trim();
@@ -336,14 +336,14 @@ public class ATTiny10Assembler implements Serializable {
           if (cSeg)
             addCommentOrError(codeAdd, label + ":");
         }
-        String[] parts = parse(line);
-        if (parts != null  &&  parts.length > 0  &&  ".fuses".equals(parts[0])) {
+        String[] parts = Utility.parse(line);
+        if (parts.length > 0 && ".fuses".equals(parts[0])) {
           byte tmp = 0;
           for (int ii = 1; ii < parts.length; ii++) {
             tmp |= (byte) fuses.get(parts[ii]).intValue();
           }
           fuseBits = (byte) ~tmp;
-        } else if (parts != null  &&  parts.length > 0  &&  ".db".equals(parts[0])) {
+        } else if (parts.length > 0 && ".db".equals(parts[0])) {
           if (cSeg) {
             int byteAdd = 0;
             int word = 0;
@@ -367,7 +367,7 @@ public class ATTiny10Assembler implements Serializable {
           } else {
             addCommentOrError(codeAdd, ".db directive doesn't work in DSEG");
           }
-        } else if (parts != null  &&  parts.length > 0  &&  ".dw".equals(parts[0])) {
+        } else if (parts.length > 0 && ".dw".equals(parts[0])) {
           if (cSeg) {
             boolean first = true;
             for (int ii = 1; ii < parts.length; ii++) {
@@ -412,7 +412,7 @@ public class ATTiny10Assembler implements Serializable {
           } else if (".device".equals(op)) {
             // Set device type
             try {
-              Properties deviceSymbols = getResourceMap(arg.toLowerCase() + ".props");
+              Properties deviceSymbols = Utility.getResourceMap(arg.toLowerCase() + ".props");
               // Copy device symbols into symbol table
               Enumeration ee = deviceSymbols.propertyNames();
               while (ee.hasMoreElements()) {
@@ -516,30 +516,6 @@ public class ATTiny10Assembler implements Serializable {
     }
     buf.append(":00000001FF\n");    // End of file
     return buf.toString();
-  }
-
-  private Properties getResourceMap (String file) throws IOException {
-    InputStream fis = getClass().getResourceAsStream("/" + file);
-    Properties prop = new Properties();
-    prop.load(fis);
-    fis.close();
-    return prop;
-  }
-
-  private static String[] parse (String line) {
-    List<String> out = new ArrayList<>();
-    if (line.length() > 0) {
-      line = ExpressionParser.condenseWhitespace(line);
-      String[] tmp = line.split(" ");
-      if (tmp.length > 0) {
-        out.add(tmp[0]);
-        StringTokenizer tok = new StringTokenizer(line.substring(tmp[0].length()).trim(), ",");
-        while (tok.hasMoreTokens()) {
-          out.add(tok.nextToken().trim());
-        }
-      }
-    }
-    return out.toArray(new String[0]);
   }
 
   private int toNum (String val) {
