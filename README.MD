@@ -19,6 +19,8 @@ So, this means you'll have to save your source file with the appropriate extensi
 ## Programming ATTiny10 Chips
 ATTiny10IDE supports several different ways to program your compiled code into an ATTiny10 chip.  One is to build and use the [Arduino-based, High Voltage programmer/emulator](https://sites.google.com/site/wayneholder/attiny10-c-ide-and-improved-device-programmer) I designed for the original version of my IDE.  However, ATTiny10IDE also now supports a way to generate an Arduino Sketch (program) which, when run, can directly program an ATTiny10 chip using only Arduino I/O lines 2 - 6, like this:
 
+<p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/TPI-Prog-Socket.png"></p>
+
     Arduino Pin 2  -> Pin 5 on ATtiny10
     Arduino Pin 3  // Pin 3 on ATtiny10
     Arduino Pin 4  // Pin 1 on ATtiny10

@@ -47,10 +47,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private static KeyStroke          SAVE_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_S, cmdMask) ;
   private static KeyStroke          QUIT_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_Q, cmdMask) ;
   private static KeyStroke          BUILD_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_B, cmdMask) ;
-  private static KeyStroke          PROG_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_P, cmdMask) ;
-  private static KeyStroke          FUSE_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_F, cmdMask) ;
-  private static KeyStroke          VCC_ON_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_V, cmdMask) ;
-  private static KeyStroke          VCC_OFF_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_X, cmdMask) ;
   static Map<String,ChipInfo>       progProtocol = new HashMap<>();
   private enum                      Tab {SRC(0), LIST(1), HEX(2), PROG(3), INFO(4); final int num; Tab(int num) {this.num = num;}}
   private String                    osName = System.getProperty("os.name").toLowerCase();

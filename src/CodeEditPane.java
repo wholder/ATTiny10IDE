@@ -64,15 +64,14 @@ public class CodeEditPane extends JPanel implements DocumentListener {
     searchField.addKeyListener(new KeyAdapter() {
       @Override
       public void keyPressed(KeyEvent ev) {
-        if(ev.getKeyCode() == KeyEvent.VK_ENTER) {
-          search(searchField.getText());
-        }
+      if(ev.getKeyCode() == KeyEvent.VK_ENTER) {
+        search(searchField.getText());
+      }
       }
     });
     // Add "Search" Button
     JButton findButton = new JButton("Find");
     findButton.addActionListener(e -> search(searchField.getText()));
-    //findButton.setPreferredSize(new Dimension(60, 10));
     searchBar.add(findButton, getGbc(idx++, .001));
     // Add "Match Case" Checkbox
     matchCase = new JCheckBox("Match Case", prefs.getBoolean("matchcase", false));
@@ -89,12 +88,12 @@ public class CodeEditPane extends JPanel implements DocumentListener {
     closeBar.setToolTipText("Close Search Bar");
     closeBar.setPreferredSize(new Dimension(22, 22));
     closeBar.addActionListener(e -> searchBar.setVisible(false));
-    searchBar.add(closeBar, getGbc(idx++, .001));
+    searchBar.add(closeBar, getGbc(idx, .001));
     add(searchBar, BorderLayout.NORTH);
     doLayout();
     // Note: must call setContentType(), setFont() after doLayout() or no line numbers and small font
     codePane.setContentType("text/cpp");
-    boolean windows = System.getProperty("os.name").toLowerCase().indexOf("win") >= 0;
+    boolean windows = System.getProperty("os.name").toLowerCase().contains("win");
     codePane.setFont(new Font(windows ? "Consolas" : "Menlo", Font.PLAIN, 12));
     codePane.setEditable(true);
     doc = codePane.getDocument();
