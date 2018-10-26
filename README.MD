@@ -43,11 +43,11 @@ You can use this Sketch to program as many ATTiny10s as needed, but you can also
  5. Select "**`Actions->TPI Programmer->Device Signature`**" to verify the ATTiny10 is properly connected.
  6. Select "**`Actions->TPI Programmer->Program Device`**" to upload and program the code into the ATtiny10.
 
-<p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/Arduino%20Programmer.JPG" width="800" height="587"></p>
+<p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/Arduino%20Programmer.JPG" width="600" height="440"></p>
 
 I've also created a small, inexpensive PCB that implements the wiring shown in the above photo.  You can [order it from OSH Park](https://oshpark.com/shared_projects/ZBxayCTS), for $1.10 for three copies of the PCB.  _Note: I don't receive anything from OSH Park for offering this.  I do it just to make it a bit easier for you to program ATTiny10 chips using ATTiny10IDE._  In the following photo, the ATTiny10 is soldered to an SOT-23-6 to DIP 6 adapter PCB.  This kind of SMD to DIP adapter is widely available from many sources, or you can [order 3 copies of a SOT-23-6 to DIP 6 adapter I designed from OSH Park](https://oshpark.com/shared_projects/vuWx5EkE).  To complete the first adapter PCB you'll need two, [3 pin, .1 inch spacing female headers](https://www.pololu.com/product/1013), which serve as a socket for the SOT-23-6 to DIP adapter PCB, and a 5 pin strip of .1 inch spacing male headers, which you can snap off from a [40 pin, .1 inch breakaway header strip](https://www.pololu.com/product/965).  You also need two, 3 pin strips of the male header for the SOT-23-6 adapter PCB, too.
 
-<p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/OSH%20Park%20Adapter.jpg" width="800" height="611"></p>
+<p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/OSH%20Park%20Adapter.jpg" width="600" height="458"></p>
 
 To use the programming adpater, simply plug it in to data pins 2 through 6 on the Arduino and then plug the SOT-23-6 to DIP adapter into the female headers on the programming adapter PCB being careful to align pin 1 to pin one on both boards.  Once programmed, the SOT-23-6 to DIP adapter makes it easy to plug it into a breadboarded circuit to test your code.
 ## Include `Arduino.h` to code "sketches" in ATTiny10IDE
