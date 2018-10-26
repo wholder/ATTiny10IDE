@@ -778,8 +778,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   }
 
   static class ProgressBar extends JFrame {
-    JDialog       frame;
-    JProgressBar  progress;
+    private JDialog       frame;
+    private JProgressBar  progress;
+    private JTextArea     txt;
 
     ProgressBar (JFrame comp, String msg) {
       frame = new JDialog(comp);
@@ -788,13 +789,24 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       pnl.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
       frame.add(pnl, BorderLayout.CENTER);
       pnl.add(progress = new JProgressBar(), BorderLayout.NORTH);
-      JTextArea txt = new JTextArea(msg + ",\n  Please wait.");
+      txt = new JTextArea(msg);
       txt.setEditable(false);
       pnl.add(txt, BorderLayout.SOUTH);
       Rectangle loc = comp.getBounds();
       frame.pack();
       frame.setLocation(loc.x + loc.width / 2 - 150, loc.y + loc.height / 2 - 150);
       frame.setVisible(true);
+    }
+
+    void setMessage (String msg) {
+      txt.setText(msg);
+    }
+    void setValue (int value) {
+      progress.setValue(value);
+    }
+
+    void setMaximum (int value) {
+      progress.setMaximum(value);
     }
 
     void close () {
@@ -829,13 +841,13 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           srcFile.deleteOnExit();
           zip = new ZipFile(srcFile);
           int entryCount = 0, lastEntryCount = 0;
-          progress.setMaximum(zip.size());
+          setMaximum(zip.size());
           Enumeration entries = zip.entries();
           while (entries.hasMoreElements()) {
             ZipEntry entry = (ZipEntry) entries.nextElement();
             entryCount++;
             if (entryCount - lastEntryCount > 100) {
-              progress.setValue(lastEntryCount = entryCount);
+              setValue(lastEntryCount = entryCount);
             }
             String src = entry.getName();
             if (src.contains("MACOSX")) {

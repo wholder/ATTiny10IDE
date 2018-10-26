@@ -22,7 +22,6 @@ class ATTinyCompiler {
 
   private static final String prePro = "avr-g++ " +                   // https://linux.die.net/man/1/avr-g++
                                         "-w -x c++ " +                //
-//                                        "-P " +                       // Suppress line markers
                                         "-E " +                       // Preprocess only
                                         "-DF_CPU=*[CLOCK]* " +        // Create #define for F_CPU
                                         "-mmcu=*[CHIP]* " +           // Select CHIP microcontroller type
@@ -167,9 +166,10 @@ class ATTinyCompiler {
     StringBuilder defines = new StringBuilder();
     Map<String,String> out = new HashMap<>();
     // Process #pragma and #include directives
-    StringTokenizer tok = new StringTokenizer(src, "\n\r");
-    while (tok.hasMoreTokens()) {
-      String line = tok.nextToken().trim();
+    int lineNum = 0;
+    int LastIncludeLine = 1;
+    for (String line : src.split("\n")) {
+      lineNum++;
       int idx = line.indexOf("//");
       if (idx >= 0) {
         line = line.substring(0, idx).trim();
@@ -215,6 +215,7 @@ class ATTinyCompiler {
           }
         }
       } else if (line.startsWith("#include")) {
+        LastIncludeLine = Math.max(LastIncludeLine, lineNum);
         if (line.toLowerCase().contains("\"arduino.h\"")) {
           arduino = true;
         } else {
@@ -326,13 +327,23 @@ class ATTinyCompiler {
                 buf.append("\n");
               }
             }
-            buf.insert(0, CPP14ProtoGen.getPrototypes(buf.toString()));
+            // Generate prototypes
+            String protos = CPP14ProtoGen.getPrototypes(buf.toString());
             if (genProto) {
               // Copy protos and source into Sketch.cpp and continue build
-              Utility.saveFile(tmpDir + "Sketch.cpp", buf.toString());
+              lineNum = 0;
+              buf = new StringBuilder();
+              for (String line : src.split("\n")) {
+                lineNum++;
+                buf.append(line).append("\n");
+                if (lineNum == LastIncludeLine) {
+                  buf.append(protos).append("#line ").append(lineNum + 1).append("\n");
+                }
+              }
+              Utility.saveFile(tmpDir + mainFile, buf.toString());
             } else {
-              // Return just the preprocessed source prepended with protos and line marker
-              out.put("PRE", buf.toString());
+              // Return just the preprocessed source
+              out.put("PRE", ret);
               return out;
             }
           } catch (Exception ex) {
@@ -342,9 +353,9 @@ class ATTinyCompiler {
           }
         }
         progress = new ATTinyC.ProgressBar(tinyIde, "Compiling and Building");
-        progress.progress.setMaximum(compFiles.size());
+        progress.setMaximum(compFiles.size());
         int progCount = 0;
-        progress.progress.setValue(progCount);
+        progress.setValue(progCount);
         // Compile all source files
         StringBuilder linkList = new StringBuilder();
         for (String compFile : compFiles) {
@@ -375,7 +386,7 @@ class ATTinyCompiler {
             tags.put("ERR", msg);
             return tags;
           }
-          progress.progress.setValue(++progCount);
+          progress.setValue(++progCount);
         }
         // Link all object files
         tags.put("LIST", linkList.toString());
