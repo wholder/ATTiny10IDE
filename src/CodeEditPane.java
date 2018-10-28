@@ -1,4 +1,5 @@
 import jsyntaxpane.DefaultSyntaxKit;
+import jsyntaxpane.lexers.CppLexer;
 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
@@ -40,12 +41,28 @@ public class CodeEditPane extends JPanel implements DocumentListener {
   private int               tabSize;
   private CodeChangeListener codeChangeListener;
 
+
+  // Test code
+  public static void main (String[] args) {
+    JFrame frame = new JFrame();
+    CodeEditPane codePane = new CodeEditPane(Preferences.userRoot().node(CodeEditPane.class.getName()));
+    frame.add(codePane);
+    codePane.setText("\npublic static void main () {\n" +
+      "  for (int ii = 0; ii < 2; ii++) {\n" +
+      "    int jj = ii + 1;\n" +
+      "  }\n" +
+      "}\n");
+    frame.setSize(400, 300);
+    frame.setVisible(true);
+  }
+
   CodeEditPane (Preferences prefs) {
     this.prefs = prefs;
     setLayout(new BorderLayout());
     tabSize = prefs.getInt("text.tabPane", 4);
-    DefaultSyntaxKit.initKit();
+    DefaultSyntaxKit synKit = new DefaultSyntaxKit(new CppLexer());
     codePane = new JEditorPane();
+    synKit.addComponents(codePane);
     JScrollPane scroll = new JScrollPane(codePane);
     add(scroll, BorderLayout.CENTER);
     // Build Search and Replace Box

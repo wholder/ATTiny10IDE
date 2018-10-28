@@ -1,9 +1,0 @@
-<component name="libraryTable">
-  <library name="CPP14Parser">
-    <CLASSES>
-      <root url="jar://$PROJECT_DIR$/lib/CPP14Parser.jar!/" />
-    </CLASSES>
-    <JAVADOC />
-    <SOURCES />
-  </library>
-</component>

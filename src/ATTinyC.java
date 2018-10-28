@@ -58,7 +58,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private String                    tmpDir, tmpExe, chip, editFile;
   private boolean                   directHex, compiled, codeDirty;
   private File                      cFile;
-  private transient Preferences     prefs = Preferences.userNodeForPackage(getClass());
+  private transient Preferences     prefs = Preferences.userRoot().node(this.getClass().getName());
   private String                    icspProgrammer = prefs.get("icsp_programmer", "avrisp2");
   private transient JSSCPort        jPort;
   private Map<String, String>       compileMap;
