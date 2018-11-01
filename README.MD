@@ -169,7 +169,7 @@ And, the following set of define values can be used to set the resolution of the
 ## Credit and Thanks
 This project would have been much harder and much less cool without help from the following open source projects, or freely available software.
 - [Java Simple Serial Connector 2.8.0](https://github.com/scream3r/java-simple-serial-connector) - JSSC is used to communicate with the Arduino-based programmer
-- [JSyntaxPane](https://github.com/nordfalk/jsyntaxpane) - Provides C/C++ Syntax Highlighting for ATTiny10IDE
+- [JSyntaxPane](https://github.com/nordfalk/jsyntaxpane) - Now uses [CppSyntaxPane](https://github.com/wholder/CppSyntaxPane), which is based on JSyntaxPane.
 - [IntelliJ IDEA from JetBrains](https://www.jetbrains.com/idea/) (my favorite development environment for Java coding. Thanks JetBrains!)
 - [ANTLR version 4.7.1](http://www.antlr.org) - ALTLRv4 was used to generate the parser for the new (experimental) automatic prototype type generation feature.
 - [CPP14 Antlr Grammar](https://github.com/antlr/grammars-v4/blob/master/cpp/CPP14.g4) - CPP14 was used as the base, C++ grammer for the automatic prototype type generation feature.

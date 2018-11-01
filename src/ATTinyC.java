@@ -260,7 +260,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       }
     });
     menuBar.add(fileMenu);
-    // Add "Edit" Menu for undo/redo actions
+    // Add "Edit" Menu
     menuBar.add(codePane.getEditMenu());
     // Add "Actions" Menu
     JMenu actions = new JMenu("Actions");
