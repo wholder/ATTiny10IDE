@@ -62,31 +62,39 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private String                    icspProgrammer = prefs.get("icsp_programmer", "avrisp2");
   private transient JSSCPort        jPort;
   private Map<String, String>       compileMap;
+  private static Map<String,String> sigLookup = new HashMap<>();
 
   static class ChipInfo {
-    String  prog, lib, fuses;
+    String  prog, lib, fuses, signature;
     boolean useCore;
 
-    ChipInfo (String prog, String lib, String fuses, boolean useCore) {
+    ChipInfo (String prog, String lib, String fuses, String signature, boolean useCore) {
       this.prog = prog;
       this.lib = lib;
       this.fuses = fuses;
+      this.signature = signature;
       this.useCore = useCore;
     }
   }
 
+  static void addChip (String name, ChipInfo info) {
+    progProtocol.put(name, info);
+    sigLookup.put(info.signature, name);
+  }
+
   static {
-    // List of ATtiny types and the Protocol used to Program them.
-    progProtocol.put("attiny4",  new ChipInfo("TPI", "tiny10", "FF", false));
-    progProtocol.put("attiny5",  new ChipInfo("TPI", "tiny10", "FF", false));
-    progProtocol.put("attiny9",  new ChipInfo("TPI", "tiny10", "FF", false));
-    progProtocol.put("attiny10", new ChipInfo("TPI", "tiny10", "FF", false));
-    progProtocol.put("attiny24", new ChipInfo("ICSP", "tinyX4", "l:60,h:DF,e:FF", true));
-    progProtocol.put("attiny44", new ChipInfo("ICSP", "tinyX4", "l:60,h:DF,e:FF", true));
-    progProtocol.put("attiny84", new ChipInfo("ICSP", "tinyX4", "l:60,h:DF,e:FF", true));
-    progProtocol.put("attiny25", new ChipInfo("ICSP", "tinyX5", "l:60,h:DF,e:FF", true));
-    progProtocol.put("attiny45", new ChipInfo("ICSP", "tinyX5", "l:60,h:DF,e:FF", true));
-    progProtocol.put("attiny85", new ChipInfo("ICSP", "tinyX5", "l:60,h:DF,e:FF", true));
+    // List of ATtiny types, Protocol used to Program them, etc.
+    //              Part Name             Protocol    Library    Fuse(s)         Signature  UseCore
+    addChip("attiny4",  new ChipInfo("TPI",  "tiny10", "FF",             "1E8F0A", false));
+    addChip("attiny5",  new ChipInfo("TPI",  "tiny10", "FF",             "1E8F09", false));
+    addChip("attiny9",  new ChipInfo("TPI",  "tiny10", "FF",             "1E9008", false));
+    addChip("attiny10", new ChipInfo("TPI",  "tiny10", "FF",             "1E9003", false));
+    addChip("attiny24", new ChipInfo("ICSP", "tinyX4", "l:60,h:DF,e:FF", "1E910B", true));
+    addChip("attiny44", new ChipInfo("ICSP", "tinyX4", "l:60,h:DF,e:FF", "1E9207", true));
+    addChip("attiny84", new ChipInfo("ICSP", "tinyX4", "l:60,h:DF,e:FF", "1E930C", true));
+    addChip("attiny25", new ChipInfo("ICSP", "tinyX5", "l:60,h:DF,e:FF", "1E9108", true));
+    addChip("attiny45", new ChipInfo("ICSP", "tinyX5", "l:60,h:DF,e:FF", "1E9206", true));
+    addChip("attiny85", new ChipInfo("ICSP", "tinyX5", "l:60,h:DF,e:FF", "1E930B", true));
   }
 
   {
@@ -555,6 +563,81 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         showErrorDialog(ex.getMessage());
       }
     });
+
+    icpProg.add(mItem = new JMenuItem("Device Signature"));
+    mItem.addActionListener(e -> {
+      try {
+        Map<String, String> tags = new HashMap<>();
+        tags.put("PROG", icspProgrammer);
+        tags.put("TDIR", tmpDir);
+        tags.put("CHIP", chip != null ? chip : "attiny85");
+        String exec = Utility.replaceTags("avrdude -Pusb -c *[PROG]* -p *[CHIP]* -F -U signature:r:*[TDIR]*sig.hex:h", tags);
+        String cmd = tmpExe + "bin" + System.getProperty("file.separator") + exec;
+        System.out.println("Run: " + cmd);
+        Process proc = Runtime.getRuntime().exec(cmd);
+        String ret = Utility.runCmd(proc);
+        int retVal = proc.waitFor();
+        if (retVal != 0) {
+          progPane.setText("Error: " + ret + "\n");
+          selectTab(Tab.PROG);
+          return;
+        }
+        String tmp = Utility.getFile(Utility.replaceTags("*[TDIR]*sig.hex", tags)).trim().toUpperCase().replace('X', 'x');
+        String[] sigBytes = tmp.split(",");
+        StringBuilder buf = new StringBuilder();
+        for (String sigByte : sigBytes) {
+          String val = sigByte.split("x")[1];
+          buf.append(val.length() == 2 ? val : "0" + val);
+        }
+        String device = sigLookup.get(buf.toString());
+        progPane.setText("Device Signature: " + tmp + " - " + (device != null ? device : "unknown") + "\n");
+        selectTab(Tab.PROG);
+      } catch (Exception ex) {
+        ex.printStackTrace();
+      }
+    });
+
+    icpProg.add(mItem = new JMenuItem("Read Fuses"));
+    mItem.addActionListener(e -> {
+      if (chip == null) {
+        showErrorDialog("Chip type not defined");
+        return;
+      }
+      try {
+        // Read current fuse settings from chip
+        Map<String, String> tags = new HashMap<>();
+        tags.put("PROG", icspProgrammer);
+        tags.put("TDIR", tmpDir);
+        tags.put("CHIP", chip);
+        String exec = Utility.replaceTags("avrdude -Pusb -c *[PROG]* -p *[CHIP]* -U lfuse:r:*[TDIR]*lfuse.hex:h " +
+            "-U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
+        String cmd = tmpExe + "bin" + System.getProperty("file.separator") + exec;
+        System.out.println("Run: " + cmd);
+        Process proc = Runtime.getRuntime().exec(cmd);
+        String ret = Utility.runCmd(proc);
+        int retVal = proc.waitFor();
+        if (retVal != 0) {
+          progPane.setText("Error: " + ret + "\n");
+          selectTab(Tab.PROG);
+          return;
+        }
+        int lFuse = Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*lfuse.hex", tags)).trim());
+        int hFuse = Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*hfuse.hex", tags)).trim());
+        int eFuse = Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*efuse.hex", tags)).trim());
+        ParmDialog.ParmItem[][] parmSet = getFuseParms(lFuse, hFuse, eFuse);
+        for (ParmDialog.ParmItem[] col : parmSet) {
+          for (ParmDialog.ParmItem parm : col) {
+            parm.readOnly = true;
+          }
+        }
+        String[] tabs = {"LFUSE", "HFUSE", "EFUSE"};
+        ParmDialog dialog = new ParmDialog(parmSet, tabs, new String[] {"OK"});
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);              // Note: this call invokes dialog
+      } catch (Exception ex) {
+        ex.printStackTrace();
+      }
+    });
     icpProg.add(mItem = new JMenuItem("Program Fuses"));
     mItem.addActionListener(e -> {
       ChipInfo chipInfo = progProtocol.get(chip.toLowerCase());
@@ -563,7 +646,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           switch (chipInfo.prog) {
           case "TPI":
             selectTab(Tab.PROG);
-            showErrorDialog("TPI not currently supported");
+            showErrorDialog("TPI not currently supported using ISCP Programmer");
             break;
           case "ICSP":
             selectTab(Tab.PROG);
@@ -572,36 +655,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             int lFuse = Integer.decode(Utility.choose(compileMap.get("PRAGMA.LFUSE"), "0x" + fuseDefaults.get("l")));
             int hFuse = Integer.decode(Utility.choose(compileMap.get("PRAGMA.HFUSE"), "0x" + fuseDefaults.get("h")));
             int eFuse = Integer.decode(Utility.choose(compileMap.get("PRAGMA.EFUSE"), "0x" + fuseDefaults.get("e")));
-            ParmDialog.ParmItem[][] parmSet = {
-              {
-                new ParmDialog.ParmItem("CKDIV8{*[CKDIV8]*}",       !Utility.bit(lFuse, 7)),
-                new ParmDialog.ParmItem("CKOUT{*[CKOUT]*}",         !Utility.bit(lFuse, 6)),
-                new ParmDialog.ParmItem("SUT1{*[SUT]*}",            !Utility.bit(lFuse, 5)),
-                new ParmDialog.ParmItem("SUT0{*[SUT]*}",            !Utility.bit(lFuse, 4)),
-                new ParmDialog.ParmItem("CKSEL3{*[CKSEL]*}",        !Utility.bit(lFuse, 3)),
-                new ParmDialog.ParmItem("CKSEL2{*[CKSEL]*}",        !Utility.bit(lFuse, 2)),
-                new ParmDialog.ParmItem("CKSEL1{*[CKSEL]*}",        !Utility.bit(lFuse, 1)),
-                new ParmDialog.ParmItem("CKSEL0{*[CKSEL]*}",        !Utility.bit(lFuse, 0)),
-              }, {
-                new ParmDialog.ParmItem("!RSTDISBL{*[RSTDISBL]*}",  !Utility.bit(hFuse, 7)),
-                new ParmDialog.ParmItem("!DWEN{*[DWEN]*}",          !Utility.bit(hFuse, 6)),
-                new ParmDialog.ParmItem("!SPIEN{*[SPIEN]*}",        !Utility.bit(hFuse, 5)),
-                new ParmDialog.ParmItem("WDTON{*[WDTON]*}",         !Utility.bit(hFuse, 4)),
-                new ParmDialog.ParmItem("EESAVE{*[EESAVE]*}",       !Utility.bit(hFuse, 3)),
-                new ParmDialog.ParmItem("BODLEVEL2{*[BODLEVEL]*}",  !Utility.bit(hFuse, 2)),
-                new ParmDialog.ParmItem("BODLEVEL1{*[BODLEVEL]*}",  !Utility.bit(hFuse, 1)),
-                new ParmDialog.ParmItem("BODLEVEL0{*[BODLEVEL]*}",  !Utility.bit(hFuse, 0)),
-            }, {
-                new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 7)),
-                new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 6)),
-                new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 5)),
-                new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 4)),
-                new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 3)),
-                new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 2)),
-                new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 1)),
-                new ParmDialog.ParmItem("SELFPRGEN{*[SELFPRGEN]*}", !Utility.bit(eFuse, 0)),
-            }
-            };
+            ParmDialog.ParmItem[][] parmSet = getFuseParms(lFuse, hFuse, eFuse);
             String[] tabs = {"LFUSE", "HFUSE", "EFUSE"};
             ParmDialog dialog = new ParmDialog(parmSet, tabs, new String[] {"Program", "Cancel"});
             dialog.setLocationRelativeTo(this);
@@ -737,6 +791,40 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     setLocation(prefs.getInt("window.x", 10), prefs.getInt("window.y", 10));
     setVisible(true);
     installToolchain(prefs.getBoolean("reload_toolchain", false));
+  }
+
+  private ParmDialog.ParmItem[][] getFuseParms (int lFuse, int hFuse, int eFuse) {
+    ParmDialog.ParmItem[][] parmSet = {
+    {
+      new ParmDialog.ParmItem("CKDIV8{*[CKDIV8]*}",       !Utility.bit(lFuse, 7)),
+      new ParmDialog.ParmItem("CKOUT{*[CKOUT]*}",         !Utility.bit(lFuse, 6)),
+      new ParmDialog.ParmItem("SUT1{*[SUT]*}",            !Utility.bit(lFuse, 5)),
+      new ParmDialog.ParmItem("SUT0{*[SUT]*}",            !Utility.bit(lFuse, 4)),
+      new ParmDialog.ParmItem("CKSEL3{*[CKSEL]*}",        !Utility.bit(lFuse, 3)),
+      new ParmDialog.ParmItem("CKSEL2{*[CKSEL]*}",        !Utility.bit(lFuse, 2)),
+      new ParmDialog.ParmItem("CKSEL1{*[CKSEL]*}",        !Utility.bit(lFuse, 1)),
+      new ParmDialog.ParmItem("CKSEL0{*[CKSEL]*}",        !Utility.bit(lFuse, 0)),
+    }, {
+      new ParmDialog.ParmItem("!RSTDISBL{*[RSTDISBL]*}",  !Utility.bit(hFuse, 7)),
+      new ParmDialog.ParmItem("!DWEN{*[DWEN]*}",          !Utility.bit(hFuse, 6)),
+      new ParmDialog.ParmItem("!SPIEN{*[SPIEN]*}",        !Utility.bit(hFuse, 5)),
+      new ParmDialog.ParmItem("WDTON{*[WDTON]*}",         !Utility.bit(hFuse, 4)),
+      new ParmDialog.ParmItem("EESAVE{*[EESAVE]*}",       !Utility.bit(hFuse, 3)),
+      new ParmDialog.ParmItem("BODLEVEL2{*[BODLEVEL]*}",  !Utility.bit(hFuse, 2)),
+      new ParmDialog.ParmItem("BODLEVEL1{*[BODLEVEL]*}",  !Utility.bit(hFuse, 1)),
+      new ParmDialog.ParmItem("BODLEVEL0{*[BODLEVEL]*}",  !Utility.bit(hFuse, 0)),
+    }, {
+      new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 7)),
+      new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 6)),
+      new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 5)),
+      new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 4)),
+      new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 3)),
+      new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 2)),
+      new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 1)),
+      new ParmDialog.ParmItem("SELFPRGEN{*[SELFPRGEN]*}", !Utility.bit(eFuse, 0)),
+    }
+    };
+    return parmSet;
   }
 
   private boolean canProgram () {
