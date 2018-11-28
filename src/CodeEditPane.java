@@ -18,9 +18,11 @@ public class CodeEditPane extends JPanel {
   private JEditorPane         codePane;
   private CodeChangeListener  codeChangeListener;
   private DefaultSyntaxKit    synKit;
+  private Preferences         prefs;
 
 
-  CodeEditPane () {
+  CodeEditPane (Preferences prefs) {
+    this.prefs = prefs;
     setLayout(new BorderLayout());
     synKit = new DefaultSyntaxKit(new CppLexer());
     codePane = new JEditorPane();
@@ -44,9 +46,51 @@ public class CodeEditPane extends JPanel {
     codePane.setCaretPosition(0);
   }
 
+  JMenu getTabSizeMenu () {
+    JMenu tabs = new JMenu("Tab Size");
+    ButtonGroup group = new ButtonGroup();
+    int tabSize = prefs.getInt("text.tabPane", 4);
+    setTabSize(tabSize);
+    for (int ii = 2; ii <= 8; ii += 2) {
+      JRadioButtonMenuItem item = new JRadioButtonMenuItem("" + ii, tabSize == ii);
+      item.addActionListener(e -> {
+        int newSize = Integer.parseInt(item.getText());
+        setTabSize(newSize);
+        prefs.putInt("text.tabPane", newSize);
+      });
+      group.add(item);
+      tabs.add(item);
+    }
+    return tabs;
+  }
+
   void setTabSize (int tabSize) {
     Document doc = codePane.getDocument();
     doc.putProperty(PlainDocument.tabSizeAttribute, tabSize);
+    codePane.updateUI();
+  }
+
+  JMenu getFontSizeMenu () {
+    JMenu tabsItem = new JMenu("Font Size");
+    ButtonGroup group = new ButtonGroup();
+    int fontSize = prefs.getInt("text.fontsize", 12);
+    setFontSize(fontSize);
+    for (int ii : new int[] {10, 12, 14, 16, 18}) {
+      JRadioButtonMenuItem item = new JRadioButtonMenuItem("" + ii, fontSize == ii);
+      item.addActionListener(e -> {
+        int newSize = Integer.parseInt(item.getText());
+        setFontSize(newSize);
+        prefs.putInt("text.fontsize", newSize);
+      });
+      group.add(item);
+      tabsItem.add(item);
+    }
+    return tabsItem;
+  }
+
+  void setFontSize (int points) {
+    boolean windows = System.getProperty("os.name").toLowerCase().contains("win");
+    codePane.setFont(new Font(windows ? "Consolas" : "Menlo", Font.PLAIN, points));
     codePane.updateUI();
   }
 

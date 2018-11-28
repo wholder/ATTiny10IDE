@@ -161,7 +161,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     // Create Tabbed Pane
     tabPane = new JTabbedPane();
     add("Center", tabPane);
-    codePane = new CodeEditPane();
+    codePane = new CodeEditPane(prefs);
     codePane.setCodeChangeListener(() -> {
       setDirtyIndicator(codeDirty = true);
       compiled = false;
@@ -726,21 +726,10 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     JMenu settings = new JMenu("Settings");
     menuBar.add(settings);
     // Add "Tabs" Menu with submenu
-    JMenu tabsItem = new JMenu("Tabs");
-    ButtonGroup group = new ButtonGroup();
-    int tabSize = prefs.getInt("text.tabPane", 4);
-    codePane.setTabSize(tabSize);
-    for (int ii = 2; ii <= 8; ii += 2) {
-      JRadioButtonMenuItem item = new JRadioButtonMenuItem("" + ii, tabSize == ii);
-      item.addActionListener(e -> {
-        int newSize = Integer.parseInt(item.getText());
-        codePane.setTabSize(newSize);
-        prefs.putInt("text.tabPane", newSize);
-      });
-      group.add(item);
-      tabsItem.add(item);
-    }
-    settings.add(tabsItem);
+    settings.add(codePane.getTabSizeMenu());
+    settings.addSeparator();
+    // Add "Foze Size" Menu with submenu
+    settings.add(codePane.getFontSizeMenu());
     settings.addSeparator();
     JMenu tpiSettings = new JMenu("TPI Programmer");
     settings.add(tpiSettings);
