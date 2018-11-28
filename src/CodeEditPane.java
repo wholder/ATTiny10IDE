@@ -20,9 +20,8 @@ public class CodeEditPane extends JPanel {
   private DefaultSyntaxKit    synKit;
 
 
-  CodeEditPane (Preferences prefs) {
+  CodeEditPane () {
     setLayout(new BorderLayout());
-    int tabSize = prefs.getInt("text.tabPane", 4);
     synKit = new DefaultSyntaxKit(new CppLexer());
     codePane = new JEditorPane();
     synKit.addComponents(codePane);
@@ -34,8 +33,6 @@ public class CodeEditPane extends JPanel {
     boolean windows = System.getProperty("os.name").toLowerCase().contains("win");
     codePane.setFont(new Font(windows ? "Consolas" : "Menlo", Font.PLAIN, 12));
     codePane.setEditable(true);
-    Document doc = codePane.getDocument();
-    doc.putProperty(PlainDocument.tabSizeAttribute, tabSize);
   }
 
   JMenu getEditMenu () {
@@ -45,6 +42,12 @@ public class CodeEditPane extends JPanel {
   void setText (String text) {
     codePane.setText(text);
     codePane.setCaretPosition(0);
+  }
+
+  void setTabSize (int tabSize) {
+    Document doc = codePane.getDocument();
+    doc.putProperty(PlainDocument.tabSizeAttribute, tabSize);
+    codePane.updateUI();
   }
 
   String getText () {

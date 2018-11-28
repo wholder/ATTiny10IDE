@@ -77,7 +77,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     }
   }
 
-  static void addChip (String name, ChipInfo info) {
+  private static void addChip(String name, ChipInfo info) {
     progProtocol.put(name, info);
     sigLookup.put(info.signature, name);
   }
@@ -161,7 +161,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     // Create Tabbed Pane
     tabPane = new JTabbedPane();
     add("Center", tabPane);
-    codePane = new CodeEditPane(prefs);
+    codePane = new CodeEditPane();
     codePane.setCodeChangeListener(() -> {
       setDirtyIndicator(codeDirty = true);
       compiled = false;
@@ -725,8 +725,26 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     // Add Settings menu
     JMenu settings = new JMenu("Settings");
     menuBar.add(settings);
+    // Add "Tabs" Menu with submenu
+    JMenu tabsItem = new JMenu("Tabs");
+    ButtonGroup group = new ButtonGroup();
+    int tabSize = prefs.getInt("text.tabPane", 4);
+    codePane.setTabSize(tabSize);
+    for (int ii = 2; ii <= 8; ii += 2) {
+      JRadioButtonMenuItem item = new JRadioButtonMenuItem("" + ii, tabSize == ii);
+      item.addActionListener(e -> {
+        int newSize = Integer.parseInt(item.getText());
+        codePane.setTabSize(newSize);
+        prefs.putInt("text.tabPane", newSize);
+      });
+      group.add(item);
+      tabsItem.add(item);
+    }
+    settings.add(tabsItem);
+    settings.addSeparator();
     JMenu tpiSettings = new JMenu("TPI Programmer");
     settings.add(tpiSettings);
+    settings.addSeparator();
     tpiSettings.setEnabled(false);
     Thread portThread = new Thread(() -> {
       // Add "Port" and "Baud" Menus to MenuBar
