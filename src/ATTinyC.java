@@ -704,9 +704,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     });
     icpProg.add(mItem = new JMenuItem("Program Fuses"));
     mItem.addActionListener(e -> {
-      ChipInfo chipInfo = progProtocol.get(chip.toLowerCase());
       try {
         if (canProgram()) {
+          ChipInfo chipInfo = progProtocol.get(chip.toLowerCase());
           switch (chipInfo.prog) {
           case "TPI":
             selectTab(Tab.PROG);
@@ -909,7 +909,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   }
 
   private boolean canProgram () {
-    if (compiled || directHex) {
+    if (!codeDirty && (compiled || directHex)) {
       return true;
     } else {
       showErrorDialog("Code not built!");
