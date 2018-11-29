@@ -1059,16 +1059,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     }
   }
 
-  private JEditorPane getScrollingTextPage (JTabbedPane tabs, String tabName, String hoverText) {
-    JEditorPane ta = new JEditorPane();
-    ta.setFont(tFont);
-    //ta.setTabSize(4);
-    JScrollPane scroll = new JScrollPane(ta);
-    tabs.addTab(tabName, null, scroll, hoverText);
-    ta.setEditable(false);
-    return ta;
-  }
-
   static class CodeImage {
     private byte[]  data;
     private byte    fuses;

@@ -2,8 +2,9 @@ import cppsyntaxpane.DefaultSyntaxKit;
 import cppsyntaxpane.lexers.CppLexer;
 
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.text.Document;
-import javax.swing.text.JTextComponent;
 import javax.swing.text.PlainDocument;
 import java.awt.*;
 import java.util.EventListener;
@@ -15,7 +16,7 @@ import java.util.prefs.Preferences;
  *  License: MIT (https://opensource.org/licenses/MIT)
  */
 
-public class CodeEditPane extends JPanel {
+class CodeEditPane extends JPanel {
   private JEditorPane         codePane;
   private CodeChangeListener  codeChangeListener;
   private DefaultSyntaxKit    synKit;
@@ -35,6 +36,23 @@ public class CodeEditPane extends JPanel {
     codePane.setContentType("text/cpp");
     boolean windows = System.getProperty("os.name").toLowerCase().contains("win");
     codePane.setFont(new Font(windows ? "Consolas" : "Menlo", Font.PLAIN, 12));
+    Document doc = codePane.getDocument();
+    doc.addDocumentListener(new DocumentListener() {
+      @Override
+      public void insertUpdate(DocumentEvent e) {
+        codeChanged();
+      }
+
+      @Override
+      public void removeUpdate(DocumentEvent e) {
+        codeChanged();
+      }
+
+      @Override
+      public void changedUpdate(DocumentEvent e) {
+        codeChanged();
+      }
+    });
     codePane.setEditable(true);
   }
 
@@ -81,7 +99,7 @@ public class CodeEditPane extends JPanel {
     return tabs;
   }
 
-  void setTabSize (int tabSize) {
+  private void setTabSize (int tabSize) {
     Document doc = codePane.getDocument();
     doc.putProperty(PlainDocument.tabSizeAttribute, tabSize);
     codePane.updateUI();
@@ -105,7 +123,7 @@ public class CodeEditPane extends JPanel {
     return tabsItem;
   }
 
-  void setFontSize (int points) {
+  private void setFontSize (int points) {
     boolean windows = System.getProperty("os.name").toLowerCase().contains("win");
     codePane.setFont(new Font(windows ? "Consolas" : "Menlo", Font.PLAIN, points));
     codePane.updateUI();

@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
    */
 
 class ATTinyCompiler {
-  private static final Pattern  libMatch = Pattern.compile("\\#include\\s+\\<([a-zA-Z.]+)\\>");
+  private static final Pattern  libMatch = Pattern.compile("#include\\s+<([a-zA-Z.]+)>");
   private static final String   fileSep =  System.getProperty("file.separator");
 
   private static final String prePro = "avr-g++ " +                   // https://linux.die.net/man/1/avr-g++
@@ -310,7 +310,7 @@ class ATTinyCompiler {
             StringBuilder buf = new StringBuilder();
             boolean inSketch = false;
             boolean lineMarkerFound = false;
-            String pattern = "\\#\\s\\d+\\s\"(.*?)\"";
+            String pattern = "#\\s\\d+\\s\"(.*?)\"";
             Pattern lMatch = Pattern.compile(pattern);
             while (lines.hasMoreElements()) {
               String line = lines.nextToken();
