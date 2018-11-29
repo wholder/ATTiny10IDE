@@ -63,7 +63,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private boolean                   directHex, compiled, codeDirty;
   private File                      cFile;
   private transient Preferences     prefs = Preferences.userRoot().node(this.getClass().getName());
-  private String                    icspProgrammer = prefs.get("icsp_programmer", "avrisp2");
+  private String                    ispProgrammer = prefs.get("icsp_programmer", "avrisp2");
   private transient JSSCPort        jPort;
   private Map<String, String>       compileMap;
   private static Map<String,String> sigLookup = new HashMap<>();
@@ -126,12 +126,12 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     addChip("attiny5",  new ChipInfo("TPI",  "tiny10", "FF",             "1E8F09", false));
     addChip("attiny9",  new ChipInfo("TPI",  "tiny10", "FF",             "1E9008", false));
     addChip("attiny10", new ChipInfo("TPI",  "tiny10", "FF",             "1E9003", false));
-    addChip("attiny24", new ChipInfo("ICSP", "tinyX4", "l:60,h:DF,e:FF", "1E910B", true));
-    addChip("attiny44", new ChipInfo("ICSP", "tinyX4", "l:60,h:DF,e:FF", "1E9207", true));
-    addChip("attiny84", new ChipInfo("ICSP", "tinyX4", "l:60,h:DF,e:FF", "1E930C", true));
-    addChip("attiny25", new ChipInfo("ICSP", "tinyX5", "l:60,h:DF,e:FF", "1E9108", true));
-    addChip("attiny45", new ChipInfo("ICSP", "tinyX5", "l:60,h:DF,e:FF", "1E9206", true));
-    addChip("attiny85", new ChipInfo("ICSP", "tinyX5", "l:60,h:DF,e:FF", "1E930B", true));
+    addChip("attiny24", new ChipInfo("ISP",  "tinyX4", "l:60,h:DF,e:FF", "1E910B", true));
+    addChip("attiny44", new ChipInfo("ISP",  "tinyX4", "l:60,h:DF,e:FF", "1E9207", true));
+    addChip("attiny84", new ChipInfo("ISP",  "tinyX4", "l:60,h:DF,e:FF", "1E930C", true));
+    addChip("attiny25", new ChipInfo("ISP",  "tinyX5", "l:60,h:DF,e:FF", "1E9108", true));
+    addChip("attiny45", new ChipInfo("ISP",  "tinyX5", "l:60,h:DF,e:FF", "1E9206", true));
+    addChip("attiny85", new ChipInfo("ISP",  "tinyX5", "l:60,h:DF,e:FF", "1E930B", true));
   }
 
   {
@@ -521,7 +521,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             showErrorDialog(ex.getMessage());
           }
           break;
-        case "ICSP":
+        case "ISP":
           showErrorDialog("Protocol '" + protocol + " not currently supported");
           break;
         }
@@ -575,9 +575,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       }
     });
     /*
-     *    ICSP Programmer Menus
+     *    ISP Programmer Menus
      */
-    JMenu icpProg = new JMenu("ICSP Programmer");
+    JMenu icpProg = new JMenu("ISP Programmer");
     actions.add(icpProg);
     icpProg.add(mItem = new JMenuItem("Program Device"));
     mItem.addActionListener(e -> {
@@ -586,7 +586,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           String hex = hexPane.getText();
           String protocol = progProtocol.get(chip.toLowerCase()).prog;
           switch (protocol) {
-          case "ICSP":
+          case "ISP":
             // Copy contents of "hex" pane to temp file with .hex extension
             selectTab(Tab.PROG);
             try {
@@ -600,7 +600,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             // Use AVRDUDE to program chip
             try {
               Map<String,String> tags = new HashMap<>();
-              tags.put("PROG", icspProgrammer);
+              tags.put("PROG", ispProgrammer);
               tags.put("TDIR", tmpDir);
               tags.put("CHIP", chip);
               String exec = Utility.replaceTags("avrdude -Pusb -c *[PROG]* -p *[CHIP]* -U flash:w:*[TDIR]*code.hex", tags);
@@ -619,7 +619,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             }
             break;
           default:
-            showErrorDialog("ICSP Programming is not complatible with selected device");
+            showErrorDialog("ISP Programming is not complatible with selected device");
             break;
          }
         }
@@ -632,7 +632,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.addActionListener(e -> {
       try {
         Map<String, String> tags = new HashMap<>();
-        tags.put("PROG", icspProgrammer);
+        tags.put("PROG", ispProgrammer);
         tags.put("TDIR", tmpDir);
         tags.put("CHIP", chip != null ? chip : "attiny85");
         String exec = Utility.replaceTags("avrdude -Pusb -c *[PROG]* -p *[CHIP]* -F -U signature:r:*[TDIR]*sig.hex:h", tags);
@@ -670,7 +670,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       try {
         // Read current fuse settings from chip
         Map<String, String> tags = new HashMap<>();
-        tags.put("PROG", icspProgrammer);
+        tags.put("PROG", ispProgrammer);
         tags.put("TDIR", tmpDir);
         tags.put("CHIP", chip);
         String exec = Utility.replaceTags("avrdude -Pusb -c *[PROG]* -p *[CHIP]* -U lfuse:r:*[TDIR]*lfuse.hex:h " +
@@ -712,7 +712,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             selectTab(Tab.PROG);
             showErrorDialog("TPI not currently supported using ISCP Programmer");
             break;
-          case "ICSP":
+          case "ISP":
             selectTab(Tab.PROG);
             progPane.setText("");
             Map<String,String> fuseDefaults = Utility.csvToMap(chipInfo.fuses);
@@ -727,7 +727,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             if (dialog.wasPressed()) {
               // Read current fuse settings
               Map<String, String> tags = new HashMap<>();
-              tags.put("PROG", icspProgrammer);
+              tags.put("PROG", ispProgrammer);
               tags.put("TDIR", tmpDir);
               tags.put("CHIP", chip);
               String exec = Utility.replaceTags("avrdude -Pusb -c *[PROG]* -p *[CHIP]* -U lfuse:r:*[TDIR]*lfuse.hex:h " +
@@ -813,18 +813,28 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       }
     });
     portThread.start();
-    JMenu icspProg = new JMenu("ICSP Programmer");
+    JMenu icspProg = new JMenu("ISP Programmer");
     try {
       Map<String,String> pgrmrs = Utility.toTreeMap(Utility.getResourceMap("icsp_programmers.props"));
       for (String key : pgrmrs.keySet()) {
         String val = pgrmrs.get(key);
+        int idxs = val.indexOf("{");
+        int idxe = val.indexOf("}");
+        String toolTip = null;
+        if (idxs >= 0 && idxe > idxs) {
+          toolTip = val.substring(idxs + 1, idxe);
+          val = val.substring(0, idxs) + val.substring(idxe + 1);
+        }
         JRadioButtonMenuItem item = new JRadioButtonMenuItem(val);
+        if (toolTip != null) {
+          item.setToolTipText("<html>" + toolTip + "</html>");
+        }
         icspProg.add(item);
-        if (icspProgrammer.equals(key)) {
+        if (ispProgrammer.equals(key)) {
           item.setSelected(true);
         }
         item.addActionListener(ex -> {
-          prefs.put("icsp_programmer", icspProgrammer = key);
+          prefs.put("icsp_programmer", ispProgrammer = key);
           System.out.println(key);
         });
       }
