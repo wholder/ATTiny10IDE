@@ -304,6 +304,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         saveMenu.setEnabled(true);
       }
     });
+    fileMenu.addSeparator();
     fileMenu.add(mItem = new JMenuItem("Quit ATTiny10IDE"));
     mItem.setAccelerator(QUIT_KEY);
     mItem.addActionListener(e -> {
@@ -320,6 +321,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     // Add "Actions" Menu
     JMenu actions = new JMenu("Actions");
     actions.add(mItem = new JMenuItem("Build"));
+    actions.addSeparator();
     mItem.setAccelerator(BUILD_KEY);
     mItem.addActionListener(e -> {
       if (cFile != null) {
@@ -445,6 +447,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
      */
     JMenu tpiProg = new JMenu("TPI Programmer");
     actions.add(tpiProg);
+    actions.addSeparator();
     tpiProg.add(mItem = new JMenuItem("Program Device"));
     mItem.addActionListener(e -> {
       try {
