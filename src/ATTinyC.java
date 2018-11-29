@@ -321,7 +321,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     // Add "Actions" Menu
     JMenu actions = new JMenu("Actions");
     actions.add(mItem = new JMenuItem("Build"));
-    actions.addSeparator();
     mItem.setAccelerator(BUILD_KEY);
     mItem.addActionListener(e -> {
       if (cFile != null) {
@@ -350,12 +349,14 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
                 tags.put("PREPROCESS", "GENPROTOS");
               }
               compileMap = ATTinyCompiler.compile(codePane.getText(), tags, this);
+              String compName = "Sketch.cpp";
+              String trueName = cFile.getName();
               if (compileMap.containsKey("ERR")) {
                 listPane.setForeground(Color.red);
                 // Remove path to tmpDir from error messages
-                String errText = compileMap.get("ERR").replace(tmpDir, "");
+                String errText = compileMap.get("ERR").replace(tmpDir + compName, trueName);
                 errText = errText.replace("\n", "<br>");
-                Pattern lineRef = Pattern.compile("(Sketch.cpp:([0-9]+?:[0-9]+?):) error:");
+                Pattern lineRef = Pattern.compile("(" + trueName + ":([0-9]+?:[0-9]+?):) error:");
                 Matcher mat = lineRef.matcher(errText);
                 StringBuffer buf = new StringBuffer("<html><body><tt>");
                 while (mat.find()) {
@@ -371,7 +372,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
               } else {
                 listPane.setForeground(Color.black);
                 String listing = compileMap.get("INFO") + "\n\n" + compileMap.get("SIZE") + compileMap.get("LST");
-                listPane.setText(listing.replace(tmpDir, ""));
+                compName = compName.substring(0, compName.indexOf("."));
+                trueName = trueName.substring(0, trueName.indexOf("."));
+                listPane.setText(listing.replace(tmpDir + compName, trueName));
                 hexPane.setForeground(Color.black);
                 hexPane.setText(compileMap.get("HEX"));
                 chip = compileMap.get("CHIP");
@@ -442,6 +445,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         showErrorDialog("Please save file first!");
       }
     });
+    actions.addSeparator();
     /*
      *    TPI Programmer Menus
      */

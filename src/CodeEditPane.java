@@ -66,7 +66,7 @@ class CodeEditPane extends JPanel {
   }
 
   void setPosition (int line, int column) {
-    int p = getDocumentPosition(line - 1, column);
+    int p = getDocumentPosition(line - 1, column - 1);
     codePane.setCaretPosition(p);
 
   }
