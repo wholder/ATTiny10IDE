@@ -3,6 +3,7 @@ import cppsyntaxpane.lexers.CppLexer;
 
 import javax.swing.*;
 import javax.swing.text.Document;
+import javax.swing.text.JTextComponent;
 import javax.swing.text.PlainDocument;
 import java.awt.*;
 import java.util.EventListener;
@@ -45,6 +46,22 @@ public class CodeEditPane extends JPanel {
     codePane.setText(text);
     codePane.setCaretPosition(0);
   }
+
+  void setPosition (int line, int column) {
+    int p = getDocumentPosition(line - 1, column);
+    codePane.setCaretPosition(p);
+
+  }
+
+  private int getDocumentPosition (int line, int column) {
+    int lineHeight = codePane.getFontMetrics(codePane.getFont()).getHeight();
+    int charWidth = codePane.getFontMetrics(codePane.getFont()).charWidth('m');
+    int y = line * lineHeight;
+    int x = column * charWidth;
+    Point pt = new Point(x, y);
+    return codePane.viewToModel(pt);
+  }
+
 
   JMenu getTabSizeMenu () {
     JMenu tabs = new JMenu("Tab Size");

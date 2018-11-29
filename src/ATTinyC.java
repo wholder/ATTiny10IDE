@@ -11,11 +11,15 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.prefs.Preferences;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import javax.swing.*;
+import javax.swing.event.HyperlinkEvent;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.text.Document;
 
 import jssc.SerialNativeInterface;
 
@@ -53,7 +57,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private JTabbedPane               tabPane;
   private JFileChooser              fc = new JFileChooser();
   private CodeEditPane              codePane;
-  private JTextArea                 listPane, hexPane, progPane, infoPane;
+  private MyTextPane                listPane, hexPane, progPane, infoPane;
   private JMenuItem                 saveMenu;
   private String                    tmpDir, tmpExe, chip, editFile;
   private boolean                   directHex, compiled, codeDirty;
@@ -74,6 +78,39 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       this.fuses = fuses;
       this.signature = signature;
       this.useCore = useCore;
+    }
+  }
+
+  static class MyTextPane extends JEditorPane {
+    MyTextPane (JTabbedPane tabs, String tabName, String hoverText) {
+      setContentType("text/plain");
+      setFont(tFont);
+      //ta.setTabSize(4);
+      JScrollPane scroll = new JScrollPane(this);
+      tabs.addTab(tabName, null, scroll, hoverText);
+      setEditable(false);
+    }
+
+    @Override
+    public void setText (String text) {
+      setContentType("text/plain");
+      setFont(tFont);
+      super.setText(text);
+    }
+
+    void setErrorText (String text) {
+      setContentType("text/html");
+      setFont(tFont);
+      super.setText(text);
+    }
+
+    void append (String text) {
+      Document doc = getDocument();
+      try {
+        doc.insertString(doc.getLength(), text, null);
+      } catch (Exception ex) {
+        ex.printStackTrace();
+      }
     }
   }
 
@@ -169,10 +206,20 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       hexPane.setForeground(Color.red);
     });
     tabPane.addTab("Source Code", null, codePane, "This is the editor pane where you enter source code");
-    listPane = getScrollingTextPage(tabPane, "Listing", "Select this pane to view the assembler listing");
-    hexPane = getScrollingTextPage(tabPane, "Hex Output", "Intel Hex Output file for programmer");
-    progPane = getScrollingTextPage(tabPane, "Programmer", "Records communication with Arduino-based programmer");
-    infoPane = getScrollingTextPage(tabPane, "Error Info", "Displays additional information about errors");
+    listPane = new MyTextPane(tabPane, "Listing", "Select this pane to view the assembler listing");
+    listPane.addHyperlinkListener(ev -> {
+      if (ev.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
+        String [] tmp = ev.getDescription().split(":");
+        tabPane.setSelectedIndex(0);
+        int line = Integer.parseInt(tmp[0]);
+        int column = Integer.parseInt(tmp[1]);
+        codePane.setPosition(line, column);
+        System.out.println(ev.getDescription());
+      }
+    });
+    hexPane = new MyTextPane(tabPane, "Hex Output", "Intel Hex Output file for programmer");
+    progPane = new MyTextPane(tabPane, "Programmer", "Records communication with Arduino-based programmer");
+    infoPane = new MyTextPane(tabPane, "Error Info", "Displays additional information about errors");
     infoPane.append("os.name: " + osName + "\n");
     // Add menu bar and menus
     JMenuBar menuBar = new JMenuBar();
@@ -303,12 +350,26 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
               compileMap = ATTinyCompiler.compile(codePane.getText(), tags, this);
               if (compileMap.containsKey("ERR")) {
                 listPane.setForeground(Color.red);
-                listPane.setText(compileMap.get("ERR"));
-                //prefs.putBoolean("reload_toolchain", true);
+                // Remove path to tmpDir from error messages
+                String errText = compileMap.get("ERR").replace(tmpDir, "");
+                errText = errText.replace("\n", "<br>");
+                Pattern lineRef = Pattern.compile("(Sketch.cpp:([0-9]+?:[0-9]+?):) error:");
+                Matcher mat = lineRef.matcher(errText);
+                StringBuffer buf = new StringBuffer("<html><body><tt>");
+                while (mat.find()) {
+                  String seq = mat.group(1);
+                  if (seq != null) {
+                    mat.appendReplacement(buf, "<a href=\"" + mat.group(2) +  "\">" + seq + "</a>");
+                  }
+                }
+                mat.appendTail(buf);
+                buf.append("</tt></body></html>");
+                listPane.setErrorText(buf.toString());
                 compiled = false;
               } else {
                 listPane.setForeground(Color.black);
-                listPane.setText(compileMap.get("INFO") + "\n\n" + compileMap.get("SIZE") + compileMap.get("LST"));
+                String listing = compileMap.get("INFO") + "\n\n" + compileMap.get("SIZE") + compileMap.get("LST");
+                listPane.setText(listing.replace(tmpDir, ""));
                 hexPane.setForeground(Color.black);
                 hexPane.setText(compileMap.get("HEX"));
                 chip = compileMap.get("CHIP");
@@ -985,10 +1046,10 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     }
   }
 
-  private JTextArea getScrollingTextPage (JTabbedPane tabs, String tabName, String hoverText) {
-    JTextArea ta = new JTextArea();
+  private JEditorPane getScrollingTextPage (JTabbedPane tabs, String tabName, String hoverText) {
+    JEditorPane ta = new JEditorPane();
     ta.setFont(tFont);
-    ta.setTabSize(4);
+    //ta.setTabSize(4);
     JScrollPane scroll = new JScrollPane(ta);
     tabs.addTab(tabName, null, scroll, hoverText);
     ta.setEditable(false);
