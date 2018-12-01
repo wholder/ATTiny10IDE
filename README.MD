@@ -1,4 +1,4 @@
-<p align="center"><img src="https://github.com/wholder/ATTiny10IDE/blob/master/images/ATTiny10IDE%20Screenshot.png"></p>
+<p align="center"><img src="/images/ATTiny10IDE%20Screenshot.png"></p>
 
 # ATTiny10IDE (Now for Mac and Windows)
 ATTiny10IDE is a simple, GNU-based IDE I originally wrote to simplify writing code for the ATTiny10 Series Microcontrollers using C. C++ or Assembly language.  This new version is a greatly expanded and updated version I started working on in 2014.  [See this article for some additional details on how this project started](https://sites.google.com/site/wayneholder/attiny10-c-ide-and-improved-device-programmer).  For this new release, I've added support for the ATTiny25/45/85 and ATTiny24/44/84 series of microcontrollers, as well support for programming them using an ISCP Programmer.  And, there's also an experimental feature for automatic generation of function prototypes.
