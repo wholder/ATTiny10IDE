@@ -153,19 +153,6 @@ Notice the use of `#pragma` statements to select the chip type (`attiny85`) as w
     PRINT_USE_BASE_DEC                    Dec Supported
     PRINT_USE_BASE_ARBITRARY              Full Support For Arbitrary Bases, Biggest
 
-And, the following set of define values can be used to set the resolution of the `millis()` function (when enabled):
-
-    ACCEPTABLE_MILLIS_ERROR_PPM=16666UL   (1.666% Error, Default)
-    ACCEPTABLE_MILLIS_ERROR_PPM=500000UL  (50% Error, Lowest Code Use)
-    ACCEPTABLE_MILLIS_ERROR_PPM=250000UL  (25% Error)
-    ACCEPTABLE_MILLIS_ERROR_PPM=100000UL  (10% Error)
-    ACCEPTABLE_MILLIS_ERROR_PPM=50000UL   (5% Error)
-    ACCEPTABLE_MILLIS_ERROR_PPM=25000UL   (2.5% Error)
-    ACCEPTABLE_MILLIS_ERROR_PPM=10000UL   (1% Error)
-    ACCEPTABLE_MILLIS_ERROR_PPM=5000UL    (0.5% Error)
-    ACCEPTABLE_MILLIS_ERROR_PPM=2500UL    (0.25% Error)
-    ACCEPTABLE_MILLIS_ERROR_PPM=1000UL    (0.1% Error, Highest Code Use)
-
 ## Credit and Thanks
 This project would have been much harder and much less cool without help from the following open source projects, or freely available software.
 - [Java Simple Serial Connector 2.8.0](https://github.com/scream3r/java-simple-serial-connector) - JSSC is used to communicate with the Arduino-based programmer
