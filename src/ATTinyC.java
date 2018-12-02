@@ -172,6 +172,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       "By: Wayne Holder\n" +
         "tmpDir:  " + tmpDir + "\n" +
         "tmpExy:  " + tmpExe + "\n" +
+        "Java Version:" + System.getProperty("java.version") + "\n" +
         "Java Simple Serial Connector: " + SerialNativeInterface.getLibraryVersion() + "\n" +
         "JSSC Native Code DLL Version: " + SerialNativeInterface.getNativeLibraryVersion() + "\n",
       "ATtiny10IDE " + VERSION, INFORMATION_MESSAGE,  icon);

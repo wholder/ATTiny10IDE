@@ -8,7 +8,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /*
-   * GNU Toolchain Controller for Compiling and Assembling code for ATTin10 Series Chips
+   * GNU Toolchain Controller for Compiling and Assembling code for ATTiny10 Series Chips
    * Author: Wayne Holder, 2017
    * License: MIT (https://opensource.org/licenses/MIT)
    *
