@@ -30,7 +30,7 @@ Here are the steps you can follow to program an ATTiny10 using this method:
  6. Program the Sketch into the Arduino using the "Upload" Button.
  7. Open the "**Serial Monitor**" window in the Arduino IDE (upper right button) and set the baud rate to 115200.
  8. Follow the istructions the Sketch prints to connect the Arduino to the ATTiny10.
- 9. Verify the ATTiny10 is properly connected by using the Identify ATtiny10 command by typing '`**`I`**`' and pressing "**`Send`**".
+ 9. Verify the ATTiny10 is properly connected by using the Identify ATtiny10 command by typing '**`I`**' and pressing "**`Send`**".
  10. If Identify ATtiny10 responds with "Device: ATtiny10", you are clear to program the ATtiny10 by typing '**`P`**' and pressing "**`Send`**"
 
 You can use this Sketch to program as many ATTiny10s as needed, but you can also use it as a general-purpose ATTiny10 programmer to upload and program other code, like this:
