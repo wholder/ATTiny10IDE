@@ -10,11 +10,19 @@
 //  TPICLK / PB1 3 |    | 4 PB2
 //                 +----+
 
-const unsigned char program[] PROGMEM  = { /*[CODE]*/ };
-const char          progName[] = "/*[NAME]*/";
+const unsigned char program[] PROGMEM  = {
+  0x0A, 0xC0, 0x19, 0xC0, 0x18, 0xC0, 0x17, 0xC0, 0x16, 0xC0, 0x15, 0xC0, 0x14, 0xC0, 0x13, 0xC0,
+  0x12, 0xC0, 0x11, 0xC0, 0x10, 0xC0, 0x11, 0x27, 0x1F, 0xBF, 0xCF, 0xE5, 0xD0, 0xE0, 0xDE, 0xBF,
+  0xCD, 0xBF, 0x20, 0xE0, 0xA0, 0xE4, 0xB0, 0xE0, 0x01, 0xC0, 0x1D, 0x93, 0xA0, 0x34, 0xB2, 0x07,
+  0xE1, 0xF7, 0x19, 0xD0, 0x1E, 0xC0, 0xE4, 0xCF, 0x0A, 0x9A, 0x08, 0x95, 0x12, 0x9A, 0x4F, 0xEF,
+  0x54, 0xE3, 0x6C, 0xE0, 0x41, 0x50, 0x50, 0x40, 0x60, 0x40, 0xE1, 0xF7, 0x00, 0xC0, 0x00, 0x00,
+  0x12, 0x98, 0x4F, 0xEF, 0x54, 0xE3, 0x6C, 0xE0, 0x41, 0x50, 0x50, 0x40, 0x60, 0x40, 0xE1, 0xF7,
+  0x00, 0xC0, 0x00, 0x00, 0x08, 0x95, 0x48, 0xED, 0x4C, 0xBF, 0x16, 0xBF, 0xE5, 0xDF, 0xE6, 0xDF,
+  0xFE, 0xCF, 0xF8, 0x94, 0xFF, 0xCF };
+const char          progName[] = "DelayBlink.c";
 unsigned int        progSize;
 unsigned char       flashMem[1024];
-unsigned char       fuse = 0x0/*[FUSE]*/;
+unsigned char       fuse = 0x0F;
 
 #define  BIT_TIME  1
 #define  VCC       2  // Pin 5 on ATtiny10
@@ -22,6 +30,8 @@ unsigned char       fuse = 0x0/*[FUSE]*/;
 #define  TPIDAT    4  // Pin 1 on ATtiny10
 #define  RESET     5  // Pin 6 on ATtiny10
 #define  GND       6  // Pin 2 on ATtiny10
+
+#define DEBUG     0
 
 // Define IO Registers
 #define  NVMCMD  0x33
@@ -36,7 +46,7 @@ unsigned char       fuse = 0x0/*[FUSE]*/;
 void setup () {
   // Set flashMem to unprogrammed value and then copy program code into it
   memset(flashMem, 0xFF, sizeof(flashMem));
-  memcpy(flashMem, program, sizeof(program));
+  memcpy_P(flashMem, program, sizeof(program));
   progSize = sizeof(program);
   Serial.begin(115200);
   pinMode(GND, OUTPUT);
@@ -60,11 +70,11 @@ void enablePins () {
 
 void disablePins () {
   pinMode(VCC, INPUT);
-  digitalWrite(VCC, LOW); 
+  digitalWrite(VCC, LOW);
   pinMode(TPICLK, INPUT);
   digitalWrite(TPICLK, LOW);
   pinMode(TPIDAT, INPUT);
-  digitalWrite(TPIDAT, LOW); 
+  digitalWrite(TPIDAT, LOW);
   pinMode(RESET, INPUT);
   digitalWrite(RESET, LOW);
   delay(200);
@@ -104,7 +114,7 @@ void sendFrame (unsigned char data) {
 unsigned char readBit () {
   digitalWrite(TPICLK, LOW);
   delayMicroseconds(BIT_TIME);
-  unsigned char data = digitalRead(TPIDAT) ? 1 : 0;  
+  unsigned char data = digitalRead(TPIDAT) ? 1 : 0;
   digitalWrite(TPICLK, HIGH);
   delayMicroseconds(BIT_TIME);
   return data;
@@ -215,7 +225,7 @@ void releaseCmdMode () {
   disablePins();
 }
 
-/*  
+/*
  *  0x1E, 0x8F, 0x0A  ATtiny4
  *  0x1E, 0x8F, 0x09  ATtiny5
  *  0x1E, 0x90, 0x08  ATtiny9
@@ -350,6 +360,7 @@ void printHex (unsigned char val) {
 void writeFlash (unsigned char fuseByte) {
   if (enterCmdMode()) {
     if (enterProgMode()) {
+      Serial.print("\nProgramming");
       // Erase all flash bytes
       writeIoSpace(NVMCMD, CHIP_ERASE);
       setPointerReg(0x4001);
@@ -378,12 +389,25 @@ void writeFlash (unsigned char fuseByte) {
         writeAndInc(flashMem[ii]);      // Low byte
         writeAndInc(flashMem[ii + 1]);  // High byte
         nvmWait();
+#if DEBUG
+        if ((ii & 0x0F) == 0) {
+          Serial.println();
+        }
+        printHex(flashMem[ii]);
+        Serial.print(" ");
+        printHex(flashMem[ii + 1]);
+        Serial.print(" ");
+#else
         if ((ii & 0x0F) == 0) {
           Serial.print(".");
         }
+#endif
       }
       writeIoSpace(NVMCMD, NO_OPERATION);
       nvmWait();
+      Serial.print("Done - ");
+      Serial.print(progSize, DEC);
+      Serial.println(" bytes written");
     }
   }
   releaseCmdMode();
@@ -394,7 +418,10 @@ void printInstructions () {
   int tnyPins[] = {5, 3, 1, 6, 2};
   if (sizeof(program) > 0) {
     Serial.print("Programmer for: ");
-    Serial.println(progName);
+    Serial.print(progName);
+    Serial.print(" - ");
+    Serial.print(progSize, DEC);
+    Serial.println(" bytes");
   }
   Serial.println("Connect:");
   for (int ii = 0; ii < 5; ii++) {
@@ -490,8 +517,7 @@ void download () {
               break;
             case 1:           // EOF Record
               writeFlash(fuse);
-              Serial.println("Done");
-              return;
+             return;
             case 2:           // Start of Record (actually extended segment address record)
               // Set buffer space and fuse byte to unprogrammed flash value (0xFF)
               memset(flashMem, 0xFF, sizeof(flashMem));
@@ -528,9 +554,7 @@ void loop () {
           break;
         case 'P':
           // Program ATtiny
-          Serial.print("Programming");
           writeFlash(fuse);
-          Serial.println("Done");
           break;
         case'D':
           download();

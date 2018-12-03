@@ -463,7 +463,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           case "TPI":
             if (jPort != null && jPort.isOpen()) {
               selectTab(Tab.PROG);
-              progPane.append("\nProgramming " + cFile.getName());
+              progPane.append("\nSending Code for: " + cFile.getName());
               jPort.sendString("\nD\n" + hex + "\n");
             } else {
               showErrorDialog("Serial port not selected!");
@@ -914,7 +914,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   }
 
   private boolean canProgram () {
-    if (!codeDirty && (compiled || directHex)) {
+    if (compiled || directHex) {
       return true;
     } else {
       showErrorDialog("Code not built!");
