@@ -65,7 +65,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private transient Preferences     prefs = Preferences.userRoot().node(this.getClass().getName());
   private String                    ispProgrammer = prefs.get("icsp_programmer", "avrisp2");
   private transient JSSCPort        jPort;
-  private transient boolean         escape;
   private Map<String, String>       compileMap;
   private static Map<String,String> sigLookup = new HashMap<>();
 
@@ -460,28 +459,16 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         if (canProgram()) {
           String hex = hexPane.getText();
           String protocol = progProtocol.get(chip.toLowerCase()).prog;
-          switch (protocol) {
-          case "TPI":
+          if ("TPI".equals(protocol)) {
             if (jPort != null && jPort.isOpen()) {
               selectTab(Tab.PROG);
               progPane.append("\nSending Code for: " + cFile.getName());
-              byte[] data = ("\nD\n" + hex + "\n").getBytes(StandardCharsets.UTF_8);
-              escape = false;
-              for (byte snd : data) {
-                jPort.sendByte(snd);
-                if (escape) {
-                  progPane.append("\nTimeout abort\n");
-                  escape = false;
-                }
-              }
               jPort.sendString("\nD\n" + hex + "\n");
             } else {
               showErrorDialog("Serial port not selected!");
             }
-            break;
-          default:
+          } else {
             showErrorDialog("TPI Programming is not complatible with selected device");
-            break;
           }
         }
       } catch (Exception ex) {
@@ -600,8 +587,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         if (canProgram()) {
           String hex = hexPane.getText();
           String protocol = progProtocol.get(chip.toLowerCase()).prog;
-          switch (protocol) {
-          case "ISP":
+          if (protocol.equals("ISP")) {
             // Copy contents of "hex" pane to temp file with .hex extension
             selectTab(Tab.PROG);
             try {
@@ -610,11 +596,11 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
               fOut.close();
             } catch (IOException ex) {
               progPane.append("\nError: " + ex.toString());
-              break;
+              return;
             }
             // Use AVRDUDE to program chip
             try {
-              Map<String,String> tags = new HashMap<>();
+              Map<String, String> tags = new HashMap<>();
               tags.put("PROG", ispProgrammer);
               tags.put("TDIR", tmpDir);
               tags.put("CHIP", chip);
@@ -632,11 +618,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             } catch (IllegalStateException ex) {
               ex.printStackTrace();
             }
-            break;
-          default:
+          } else {
             showErrorDialog("ISP Programming is not complatible with selected device");
-            break;
-         }
+          }
         }
       } catch (Exception ex) {
         showErrorDialog(ex.getMessage());
@@ -890,7 +874,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   }
 
   private ParmDialog.ParmItem[][] getFuseParms (int lFuse, int hFuse, int eFuse) {
-    ParmDialog.ParmItem[][] parmSet = {
+    return new ParmDialog.ParmItem[][]{
     {
       new ParmDialog.ParmItem("CKDIV8{*[CKDIV8]*}",       !Utility.bit(lFuse, 7)),
       new ParmDialog.ParmItem("CKOUT{*[CKOUT]*}",         !Utility.bit(lFuse, 6)),
@@ -920,7 +904,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       new ParmDialog.ParmItem("SELFPRGEN{*[SELFPRGEN]*}", !Utility.bit(eFuse, 0)),
     }
     };
-    return parmSet;
   }
 
   private boolean canProgram () {
@@ -1070,9 +1053,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   // Implement JSSCPort.RXEvent
   public void rxChar (byte cc) {
     if (progPane != null) {
-      if (cc == 0x1B) {
-        escape = true;
-      }
       progPane.append(Character.toString((char) cc));
     }
   }
