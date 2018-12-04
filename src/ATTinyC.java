@@ -65,6 +65,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private transient Preferences     prefs = Preferences.userRoot().node(this.getClass().getName());
   private String                    ispProgrammer = prefs.get("icsp_programmer", "avrisp2");
   private transient JSSCPort        jPort;
+  private transient boolean         escape;
   private Map<String, String>       compileMap;
   private static Map<String,String> sigLookup = new HashMap<>();
 
@@ -464,6 +465,15 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             if (jPort != null && jPort.isOpen()) {
               selectTab(Tab.PROG);
               progPane.append("\nSending Code for: " + cFile.getName());
+              byte[] data = ("\nD\n" + hex + "\n").getBytes(StandardCharsets.UTF_8);
+              escape = false;
+              for (byte snd : data) {
+                jPort.sendByte(snd);
+                if (escape) {
+                  progPane.append("\nTimeout abort\n");
+                  escape = false;
+                }
+              }
               jPort.sendString("\nD\n" + hex + "\n");
             } else {
               showErrorDialog("Serial port not selected!");
@@ -1060,6 +1070,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   // Implement JSSCPort.RXEvent
   public void rxChar (byte cc) {
     if (progPane != null) {
+      if (cc == 0x1B) {
+        escape = true;
+      }
       progPane.append(Character.toString((char) cc));
     }
   }

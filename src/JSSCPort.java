@@ -136,6 +136,10 @@ public class JSSCPort implements SerialPortEventListener {
     }
   }
 
+  public int inputAvailable () {
+    return queue.size();
+  }
+
   public void removeRXHandler (RXEvent handler) {
     synchronized (this) {
       rxHandlers.remove(handler);

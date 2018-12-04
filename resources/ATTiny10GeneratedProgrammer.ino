@@ -536,7 +536,7 @@ void download () {
     } else {
       // Check for 2 second timeout;
       if ((millis() - timeout) > 2000) {
-        Serial.println(".Timeout");
+        Serial.println(" \033.Timeout");
         return;
       }
     }
