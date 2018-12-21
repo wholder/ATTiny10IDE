@@ -34,8 +34,7 @@ class CodeEditPane extends JPanel {
     doLayout();
     // Note: must call setContentType(), setFont() after doLayout() or no line numbers and small font
     codePane.setContentType("text/cpp");
-    boolean windows = System.getProperty("os.name").toLowerCase().contains("win");
-    codePane.setFont(new Font(windows ? "Consolas" : "Menlo", Font.PLAIN, 12));
+    codePane.setFont(ATTinyC.getCodeFont(12));
     Document doc = codePane.getDocument();
     doc.addDocumentListener(new DocumentListener() {
       @Override
@@ -124,8 +123,7 @@ class CodeEditPane extends JPanel {
   }
 
   private void setFontSize (int points) {
-    boolean windows = System.getProperty("os.name").toLowerCase().contains("win");
-    codePane.setFont(new Font(windows ? "Consolas" : "Menlo", Font.PLAIN, points));
+    codePane.setFont(ATTinyC.getCodeFont(points));
     codePane.updateUI();
   }
 
