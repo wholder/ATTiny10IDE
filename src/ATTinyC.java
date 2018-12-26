@@ -732,6 +732,10 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     });
     icpProg.add(mItem = new JMenuItem("Program Fuses"));
     mItem.addActionListener(e -> {
+      if (chip == null) {
+        showErrorDialog("Chip type not defined (code must be built to define)");
+        return;
+      }
       try {
         if (canProgram()) {
           ChipInfo chipInfo = progProtocol.get(chip.toLowerCase());
@@ -844,6 +848,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     portThread.start();
     JMenu icspProg = new JMenu("ISP Programmer");
     try {
+      ButtonGroup icspGroup = new ButtonGroup();
       Map<String,String> pgrmrs = Utility.toTreeMap(Utility.getResourceMap("icsp_programmers.props"));
       for (String key : pgrmrs.keySet()) {
         String val = pgrmrs.get(key);
@@ -855,6 +860,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           val = val.substring(0, idxs) + val.substring(idxe + 1);
         }
         JRadioButtonMenuItem item = new JRadioButtonMenuItem(val);
+        icspGroup.add(item);
         if (toolTip != null) {
           item.setToolTipText("<html>" + toolTip + "</html>");
         }
