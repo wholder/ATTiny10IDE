@@ -27,18 +27,9 @@ import static javax.swing.JOptionPane.INFORMATION_MESSAGE;
 import static javax.swing.JOptionPane.showMessageDialog;
 
 /**
-   *  An IDE for ATTiny10 Series MIcrocontrolles
+   *  An IDE for ATTiny10 Series Microcontrollers
    *  Author: Wayne Holder, 2017
    *  License: MIT (https://opensource.org/licenses/MIT)
-   *
-   *  TBD:
-   *    Convert to JSSC for Serial IO [done]
-   *    Make it run on Windows [done]
-   *    Make it run on Linux
-   *    Switch from CrossPack-AVR toolchain to one extracted from Arduino
-   *    Implement Arduino-like I/O functions (pinMode(), analogWrite(), etc.)
-   *    Program and debug? See: http://www.ruemohr.org/docs/debugwire.html
-   *    https://github.com/dcwbrown/dwire-debug/blob/master/src/commandline/commandline.c
    */
 
 public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
@@ -52,9 +43,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private static KeyStroke          QUIT_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_Q, cmdMask) ;
   private static KeyStroke          BUILD_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_B, cmdMask) ;
   static Map<String,ChipInfo>       progProtocol = new HashMap<>();
-  private enum                      Tab {SRC(0), LIST(1), HEX(2), PROG(3), INFO(4); final int num; Tab(int num) {this.num = num;}}
+  private enum                      Tab {DOC(0), SRC(1), LIST(2), HEX(3), PROG(4), INFO(5); final int num; Tab(int num) {this.num = num;}}
   private String                    osName = System.getProperty("os.name").toLowerCase();
-  private enum                      OpSys {MAC, WIN, LINUX};
+  private enum                      OpSys {MAC, WIN, LINUX}
   private OpSys                     os;
   private JTabbedPane               tabPane;
   private JFileChooser              fc = new JFileChooser();
@@ -229,6 +220,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       listPane.setForeground(Color.red);
       hexPane.setForeground(Color.red);
     });
+    MarkupView howToPane = new MarkupView("documentation/index.md");
+    tabPane.addTab("How To", null, howToPane, "This is the documentation page");
     tabPane.addTab("Source Code", null, codePane, "This is the editor pane where you enter source code");
     listPane = new MyTextPane(tabPane, "Listing", "Select this pane to view the assembler listing");
     listPane.addHyperlinkListener(ev -> {
@@ -828,7 +821,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     // Add "Foze Size" Menu with submenu
     settings.add(codePane.getFontSizeMenu());
     settings.addSeparator();
-    JMenu tpiSettings = new JMenu("TPI Programmer");
+    JMenu tpiSettings = new JMenu("Serial Port");
     settings.add(tpiSettings);
     settings.addSeparator();
     tpiSettings.setEnabled(false);

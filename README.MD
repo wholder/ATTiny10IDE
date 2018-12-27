@@ -35,7 +35,7 @@ Here are the steps you can follow to program an ATTiny10 using this method:
 You can use this Sketch to program as many ATTiny10s as needed, but you can also use it as a general-purpose ATTiny10 programmer to upload and program other code, like this:
 
  1. First "Quit" the Arduino IDE so ATTiny10IDE will have access to the Serial Port on the Arduino running the Sketch.
- 2. Start ATTiny10IDE and set "**`TPI Programmer->Settings->Baud Rate`**" to 115200 and "**`TPI Programmer->Settings->Port`**" to select the Arduino running the Sketch.
+ 2. Start ATTiny10IDE and set "**`Settings->Serial Port->Baud Rate`**" to 115200 and "**`Settings->Serial Port->Port`**" to select the Arduino running the Sketch.
  3. Open, or write the source code you want to compile and program into the ATtiny10.
  4. Select "**`Actions->Build`**" to compile. or assemble the code.
  5. Connect the Arduino to the ATTiny10 using the same connections shown above.
@@ -163,8 +163,10 @@ This project would have been much harder and much less cool without help from th
 - [IntelliJ IDEA from JetBrains](https://www.jetbrains.com/idea/) (my favorite development environment for Java coding. Thanks JetBrains!)
 - [ANTLR version 4.7.1](http://www.antlr.org) - ALTLRv4 was used to generate the parser for the new (experimental) automatic prototype type generation feature.
 - [CPP14 Antlr Grammar](https://github.com/antlr/grammars-v4/blob/master/cpp/CPP14.g4) - CPP14 was used as the base, C++ grammer for the automatic prototype type generation feature.
+
 ## MIT License
-Copyright 2014-2017 Wayne Holder
+
+Copyright 2014-2018 Wayne Holder
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 

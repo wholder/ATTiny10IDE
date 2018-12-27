@@ -5,6 +5,7 @@
       <element id="module-output" name="ATTiny10IDE" />
       <element id="extracted-dir" path="$PROJECT_DIR$/lib/jssc-2.8.0.jar" path-in-jar="/" />
       <element id="extracted-dir" path="$PROJECT_DIR$/lib/CPP14Parser.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/lib/txtmark-0.13.jar" path-in-jar="/" />
       <element id="extracted-dir" path="$PROJECT_DIR$/lib/CppSyntaxPane.jar" path-in-jar="/" />
     </root>
   </artifact>
