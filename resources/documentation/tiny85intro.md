@@ -36,7 +36,7 @@ The standard way to program ATTiny85 series chips is to use an In-Circuit Serial
 
 <p align="center"><img src="images/ATAVRISP2.jpg" width="700" height="527"></p>
 
-The Atmel.Microchip has discontinued the AVRISP mkII, but clones of the AVRISP mkII are available from various on-line sellers.  To use an AVRISP mkII, select it as your programmer in the "Settings->ISP Programmer" menu.  Internally, ATTiny10IDE then uses AVRDUDE to program your ATTiny85.  The following wiring diagam shows how to connect the 6 pins from the AVRISP mkII to your ATTiny85 chip:
+Note: Atmel.Microchip has discontinued the AVRISP mkII, but clones of the AVRISP mkII are available from various on-line sellers.  To use an AVRISP mkII, select it as your programmer in the "Settings->ISP Programmer" menu.  Internally, ATTiny10IDE then uses AVRDUDE to program your ATTiny85.  The following wiring diagam shows how to connect the 6 pins from the AVRISP mkII to your ATTiny85 chip:
 
 <p align="center"><img src="images/ATTiny85-to-AVRISP-mkII.png" width="514" height="293"></p>
 

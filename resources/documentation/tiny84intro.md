@@ -10,7 +10,7 @@ So, this means you'll have to save your source file with the appropriate extensi
 
 ## Introducing the ATTiny84 Series Microcontrollers
 
-The ATTiny84 series microcontrollers include the following devices, all of which are available in 14-pin SOIC, 20-pin QFN/MLF packages with speed ranges of 0–10 MHz @ 2.7-5.5V, 0-20 MHz @ 4.5-5.5V:
+The ATTiny84 series microcontrollers include the following devices, all of which are available in 14-pin PDIP and SOIC packages, or 20-pin QFN/MLF packages with speed ranges of 0–10 MHz @ 2.7-5.5V, 0-20 MHz @ 4.5-5.5V:
 
 + ATTiny24 - 2K bytes Flash, 128 bytes RAM, 128 bytes EEPROM
 + ATTiny44 - 4K bytes Flash, 256 bytes RAM, 256 bytes EEPROM
@@ -38,7 +38,7 @@ The standard way to program ATTiny84 series chips is to use an In-Circuit Serial
 
 <p align="center"><img src="images/ATAVRISP2.jpg" width="700" height="527"></p>
 
-The Atmel.Microchip has discontinued the AVRISP mkII, but clones of the AVRISP mkII are available from various on-line sellers.  To use an AVRISP mkII, select it as your programmer in the "Settings->ISP Programmer" menu.  Internally, ATTiny10IDE then uses AVRDUDE to program your ATTiny84.  The following wiring diagam shows how to connect the 6 pins from the AVRISP mkII to your ATTiny84 chip:
+Note: Atmel.Microchip has discontinued the AVRISP mkII, but clones of the AVRISP mkII are available from various on-line sellers.  To use an AVRISP mkII, select it as your programmer in the "Settings->ISP Programmer" menu.  Internally, ATTiny10IDE then uses AVRDUDE to program your ATTiny84.  The following wiring diagam shows how to connect the 6 pins from the AVRISP mkII to your ATTiny84 chip:
 
 <p align="center"><img src="images/ATTiny84-to-AVRISP-mkII.png" width="476" height="349"></p>
 
