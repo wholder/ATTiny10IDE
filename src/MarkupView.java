@@ -164,12 +164,12 @@ class MarkupView extends JPanel {
     // Setup some basic markdown styles
     StyleSheet styleSheet = kit.getStyleSheet();
     styleSheet.addRule("body {color:#000; font-family: Bookman, Arial, Helvetica; margin: 4px;}");
-    styleSheet.addRule("h1 {font-size: 24px; font-weight: 600;}");
-    styleSheet.addRule("h2 {font-size: 20px; font-weight: 600;}");
-    styleSheet.addRule("h3 {font-size: 16px; font-weight: 600;}");
-    styleSheet.addRule("h4 {font-size: 14px; font-weight: 600;}");
-    styleSheet.addRule("h5 {font-size: 12px; font-weight: 600;}");
-    styleSheet.addRule("h6 {font-size: 10px; font-weight: 600;}");
+    styleSheet.addRule("h1 {font-size: 24px; font-weight: 500;}");
+    styleSheet.addRule("h2 {font-size: 20px; font-weight: 500;}");
+    styleSheet.addRule("h3 {font-size: 16px; font-weight: 500;}");
+    styleSheet.addRule("h4 {font-size: 14px; font-weight: 500;}");
+    styleSheet.addRule("h5 {font-size: 12px; font-weight: 500;}");
+    styleSheet.addRule("h6 {font-size: 10px; font-weight: 500;}");
     styleSheet.addRule("pre {margin-left: 0.5cm;}");
     styleSheet.addRule("ol {margin-left: 1cm;}");
     styleSheet.addRule("ol li {font-size: 12px; margin-top: 3px; margin-bottom: 3px;}");
