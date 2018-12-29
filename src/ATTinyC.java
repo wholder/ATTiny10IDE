@@ -134,7 +134,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
 
   static {
     // List of ATtiny types, Protocol used to Program them, etc.
-    //              Part Name             Protocol    Library    Fuse(s)         Signature  UseCore
+    //       Part Name             Protocol   Library   Fuse(s)         Signature  UseCore
     addChip("attiny4",  new ChipInfo("TPI",  "tiny10", "FF",             "1E8F0A", false));
     addChip("attiny5",  new ChipInfo("TPI",  "tiny10", "FF",             "1E8F09", false));
     addChip("attiny9",  new ChipInfo("TPI",  "tiny10", "FF",             "1E9008", false));
@@ -149,8 +149,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
 
   {
     FileNameExtensionFilter[] filters = {
-        new FileNameExtensionFilter("AVR .c files", "c"),
-        new FileNameExtensionFilter("AVR .asm or .s files", "asm", "s"),
+      new FileNameExtensionFilter("AVR .c files", "c"),
+      new FileNameExtensionFilter("AVR .asm or .s files", "asm", "s"),
     };
     String ext = prefs.get("default.extension", "c");
     for (FileNameExtensionFilter filter : filters) {
