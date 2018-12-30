@@ -340,6 +340,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     // Add "Actions" Menu
     JMenu actions = new JMenu("Actions");
     actions.add(mItem = new JMenuItem("Build"));
+    mItem.setToolTipText("Complile Code in Source Code Pane and Display Result in Listing and Hex Output Panes");
     mItem.setAccelerator(BUILD_KEY);
     mItem.addActionListener(e -> {
       if (cFile != null) {
@@ -418,6 +419,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       }
     });
     JMenuItem preprocess = new JMenuItem("Run Preprocessor");
+    preprocess.setToolTipText("Run GCC Propressor and Display Result in Listing Pane");
     actions.add(preprocess);
     prefs.addPreferenceChangeListener(evt -> preprocess.setVisible(prefs.getBoolean("enable_preprocessing", false)));
     preprocess.addActionListener(e -> {
@@ -472,6 +474,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     actions.add(tpiProg);
     actions.addSeparator();
     tpiProg.add(mItem = new JMenuItem("Program Device"));
+    mItem.setToolTipText("Commands TPI Programmer to Upload and Program Code to Device");
     mItem.addActionListener(e -> {
       try {
         if (canProgram()) {
@@ -494,6 +497,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       }
     });
     tpiProg.add(mItem = new JMenuItem("Generate Arduino Programmer Code"));
+    mItem.setToolTipText("Generates Arduino Sketch that can Program Device with Built Code");
     mItem.addActionListener(e -> {
       if (canProgram()) {
         String protocol = progProtocol.get(chip.toLowerCase()).prog;
@@ -548,6 +552,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       }
     });
     tpiProg.add(mItem = new JMenuItem("Calibrate Clock"));
+    mItem.setToolTipText("Commands TPI Programmer to Upload and Run Clock Calibration Code on Device");
     mItem.addActionListener(e -> {
       try {
         if (jPort != null && jPort.isOpen()) {
@@ -557,26 +562,28 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           jPort.sendString("\nD\n" + hex + "\n");
           jPort.sendString("M\n");
         } else {
-          showErrorDialog("Serial port not selected!");
+          showErrorDialog("Serial Port not selected!");
         }
       } catch (Exception ex) {
         showErrorDialog(ex.getMessage());
       }
     });
     tpiProg.add(mItem = new JMenuItem("Device Signature"));
+    mItem.setToolTipText("Commands TPI Programmer to Read and Send Back Device's Signature");
     mItem.addActionListener(e -> {
       try {
         if (jPort != null && jPort.isOpen()) {
           selectTab(Tab.PROG);
           jPort.sendString("S\n");
         } else {
-          showErrorDialog("Serial port not selected!");
+          showErrorDialog("Serial Port not selected!");
         }
       } catch (Exception ex) {
         showErrorDialog(ex.getMessage());
       }
     });
     tpiProg.add(mItem = new JMenuItem("Power On"));
+    mItem.setToolTipText("Commands TPI Programmer to Switch On Power to Device");
     mItem.addActionListener(e -> {
       try {
         jPort.sendString("V\n");
@@ -586,6 +593,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       }
     });
     tpiProg.add(mItem = new JMenuItem("Power Off"));
+    mItem.setToolTipText("Commands TPI Programmer to Switch Off Power to Device");
     mItem.addActionListener(e -> {
       try {
         jPort.sendString("X\n");
@@ -600,6 +608,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     JMenu icpProg = new JMenu("ISP Programmer");
     actions.add(icpProg);
     icpProg.add(mItem = new JMenuItem("Program Device"));
+    mItem.setToolTipText("Commands Selected ISP Programmer Upload and Program Code to Device");
     mItem.addActionListener(e -> {
       try {
         if (canProgram()) {
@@ -647,6 +656,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     });
 
     icpProg.add(mItem = new JMenuItem("Device Signature"));
+    mItem.setToolTipText("Commands Selected ISP Programmer to Read and Send Back Device's Signature");
     mItem.addActionListener(e -> {
       try {
         Map<String, String> tags = new HashMap<>();
@@ -681,6 +691,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     });
 
     icpProg.add(mItem = new JMenuItem("Read Fuses"));
+    mItem.setToolTipText("Commands Selected ISP Programmer to Read and Send Back Device's Fuse Settings");
     mItem.addActionListener(e -> {
       if (chip == null) {
         showErrorDialog("Chip type not defined (code must be built to define)");
@@ -724,6 +735,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       }
     });
     icpProg.add(mItem = new JMenuItem("Program Fuses"));
+    mItem.setToolTipText("Commands Selected ISP Programmer to Program Device's Fuses to Nre Settings");
     mItem.addActionListener(e -> {
       if (chip == null) {
         showErrorDialog("Chip type not defined (code must be built to define)");
@@ -810,6 +822,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     });
     actions.addSeparator();
     actions.add(mItem = new JMenuItem("Reinstall Toolchain"));
+    mItem.setToolTipText("Copies AVR Toolchain into Java Temporary Disk Space where it can be Executed");
     mItem.addActionListener(e -> installToolchain(true));
     menuBar.add(actions);
     // Add Settings menu
@@ -840,6 +853,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     });
     portThread.start();
     JMenu icspProg = new JMenu("ISP Programmer");
+    icspProg.setToolTipText("Select ISP Programmer");
     try {
       ButtonGroup icspGroup = new ButtonGroup();
       Map<String,String> pgrmrs = Utility.toTreeMap(Utility.getResourceMap("icsp_programmers.props"));
