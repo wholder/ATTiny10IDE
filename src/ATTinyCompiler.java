@@ -23,6 +23,8 @@ class ATTinyCompiler {
   private static final String prePro = "avr-g++ " +                   // https://linux.die.net/man/1/avr-g++
                                         "-w -x c++ " +                //
                                         "-E " +                       // Preprocess only
+                                        "-MMD " +                     // Generate dependencies to Sketch.inc
+                                        "-MF *[TDIR]*Sketch.inc " +   //   " "
                                         "-DF_CPU=*[CLOCK]* " +        // Create #define for F_CPU
                                         "-mmcu=*[CHIP]* " +           // Select CHIP microcontroller type
                                         "-DARDUINO_ARCH_AVR " +       // #define ARDUINO_ARCH_AVR
@@ -39,8 +41,8 @@ class ATTinyCompiler {
                                         "-ffunction-sections " +      // Separate functions in output file
                                         "-fdata-sections " +          // Separate data in output file
                                         "-fno-threadsafe-statics " +  // No extra code for C++ ABI routines
-//                                        "-flto " +                    // Run standard link optimizer
-//                                        "-DLTO_ENABLED " +
+                                        "-flto " +                    // Run standard link optimizer (requires 5.4.0)
+                                        "-DLTO_ENABLED " +
                                         "-DF_CPU=*[CLOCK]* " +        // Create #define for F_CPU
                                         "-mmcu=*[CHIP]* " +           // Select CHIP microcontroller type
                                         "-DARDUINO_ARCH_AVR " +       // #define ARDUINO_ARCH_AVR
@@ -58,8 +60,8 @@ class ATTinyCompiler {
                                         "-std=gnu11 " +
                                         "-ffunction-sections " +      // Separate functions in output file
                                         "-fdata-sections " +          // Separate data in output file
-//                                        "-flto " +                    // Run standard link optimizer
-//                                        "-DLTO_ENABLED " +
+                                        "-flto " +                    // Run standard link optimizer (requires 5.4.0)
+                                        "-DLTO_ENABLED " +
                                         "-DF_CPU=*[CLOCK]* " +        // Create #define for F_CPU
                                         "-mmcu=*[CHIP]* " +           // Select CHIP microcontroller type
                                         "-DARDUINO_ARCH_AVR " +       // #define ARDUINO_ARCH_AVR
@@ -74,8 +76,8 @@ class ATTinyCompiler {
                                         "-c " +                       // Compile but do not link
                                         "-g " +                       // Enable link-time optimization
                                         "-x assembler-with-cpp " +    //
-//                                        "-flto " +                    // Run standard link optimizer
-//                                        "-DLTO_ENABLED " +            //
+                                        "-flto " +                    // Run standard link optimizer (requires 5.4.0)
+                                        "-DLTO_ENABLED " +            //
                                         "-DF_CPU=*[CLOCK]* " +        // Create #define for F_CPU
                                         "-mmcu=*[CHIP]* " +           // Select CHIP microcontroller type
                                         "-DARDUINO_ARCH_AVR " +       // #define ARDUINO_ARCH_AVR
@@ -88,10 +90,11 @@ class ATTinyCompiler {
                                         "-w " +                       // Inhibit all warning messages.
                                         "-Os " +                      // Optimize for size
                                         "-g " +                       // Enable link-time optimization
-//                                        "-flto " +                    // Run standard link optimizer
-//                                        "-DLTO_ENABLED " +            // ??
-//                                        "-fuse-linker-plugin " +      // Enable link-time optimization
+                                        "-flto " +                    // Run standard link optimizer (requires 5.4.0)
+                                        "-DLTO_ENABLED " +            // ??
+                                        "-fuse-linker-plugin " +      // Enable link-time optimization (requires 5.4.0)
                                         "-Wl,--gc-sections " +        // Eliminate unused code
+                                        "-Wl,--print-gc-sections " +  // Print dead code removed
                                         "-DF_CPU=*[CLOCK]* " +        // Create #define for F_CPU
                                         "-mmcu=*[CHIP]* " +           // Select CHIP microcontroller type
                                         "-o *[TDIR]**[OFILE]* " +     // Output to file temp/OFILE

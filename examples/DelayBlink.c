@@ -7,7 +7,7 @@
 
 #include "Arduino.h"
 
-#define LED_PIN PB2
+#define LED_PIN 2
 
 void setup () {
   // set PORTB for output

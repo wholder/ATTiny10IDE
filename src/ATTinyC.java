@@ -27,33 +27,26 @@ import static javax.swing.JOptionPane.INFORMATION_MESSAGE;
 import static javax.swing.JOptionPane.showMessageDialog;
 
 /**
-   *  An IDE for ATTiny10 Series MIcrocontrolles
+   *  An IDE for ATTiny10 Series Microcontrollers
    *  Author: Wayne Holder, 2017
    *  License: MIT (https://opensource.org/licenses/MIT)
-   *
-   *  TBD:
-   *    Convert to JSSC for Serial IO [done]
-   *    Make it run on Windows [done]
-   *    Make it run on Linux
-   *    Switch from CrossPack-AVR toolchain to one extracted from Arduino
-   *    Implement Arduino-like I/O functions (pinMode(), analogWrite(), etc.)
-   *    Program and debug? See: http://www.ruemohr.org/docs/debugwire.html
-   *    https://github.com/dcwbrown/dwire-debug/blob/master/src/commandline/commandline.c
    */
 
 public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private static final String       VERSION = "1.0 beta";
   private static final String       fileSep =  System.getProperty("file.separator");
-  private static boolean            windows = System.getProperty("os.name").toLowerCase().contains("win");
-  private static Font               tFont = new Font(windows ? "Consolas" : "Menlo", Font.PLAIN, 12);
+  private static String             tempBase = System.getProperty("java.io.tmpdir");
+  private static Font               tFont = getCodeFont(12);
   private static int                cmdMask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMask();
   private static KeyStroke          OPEN_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_O, cmdMask) ;
   private static KeyStroke          SAVE_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_S, cmdMask) ;
   private static KeyStroke          QUIT_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_Q, cmdMask) ;
   private static KeyStroke          BUILD_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_B, cmdMask) ;
   static Map<String,ChipInfo>       progProtocol = new HashMap<>();
-  private enum                      Tab {SRC(0), LIST(1), HEX(2), PROG(3), INFO(4); final int num; Tab(int num) {this.num = num;}}
+  private enum                      Tab {DOC(0), SRC(1), LIST(2), HEX(3), PROG(4), INFO(5); final int num; Tab(int num) {this.num = num;}}
   private String                    osName = System.getProperty("os.name").toLowerCase();
+  private enum                      OpSys {MAC, WIN, LINUX}
+  private OpSys                     os;
   private JTabbedPane               tabPane;
   private JFileChooser              fc = new JFileChooser();
   private CodeEditPane              codePane;
@@ -63,10 +56,30 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private boolean                   directHex, compiled, codeDirty;
   private File                      cFile;
   private transient Preferences     prefs = Preferences.userRoot().node(this.getClass().getName());
-  private String                    ispProgrammer = prefs.get("icsp_programmer", "avrisp2");
+  private String                    ispProgrammer = prefs.get("icsp_programmer", "stk500v2");
   private transient JSSCPort        jPort;
   private Map<String, String>       compileMap;
   private static Map<String,String> sigLookup = new HashMap<>();
+
+  {
+    try {
+      tempBase = tempBase.endsWith(fileSep) ? tempBase : tempBase + fileSep;
+      if (osName.contains("win")) {
+        os = OpSys.WIN;
+        UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
+      } else if (osName.contains("mac")) {
+        os = OpSys.MAC;
+      } else if (osName.contains("linux")) {
+        os = OpSys.LINUX;
+        UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
+      } else {
+        showErrorDialog("Unsupported os: " + osName);
+        System.exit(1);
+      }
+    } catch (Exception ex) {
+      ex.printStackTrace();
+    }
+  }
 
   static class ChipInfo {
     String  prog, lib, fuses, signature;
@@ -121,7 +134,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
 
   static {
     // List of ATtiny types, Protocol used to Program them, etc.
-    //              Part Name             Protocol    Library    Fuse(s)         Signature  UseCore
+    //       Part Name             Protocol   Library   Fuse(s)         Signature  UseCore
     addChip("attiny4",  new ChipInfo("TPI",  "tiny10", "FF",             "1E8F0A", false));
     addChip("attiny5",  new ChipInfo("TPI",  "tiny10", "FF",             "1E8F09", false));
     addChip("attiny9",  new ChipInfo("TPI",  "tiny10", "FF",             "1E9008", false));
@@ -136,8 +149,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
 
   {
     FileNameExtensionFilter[] filters = {
-        new FileNameExtensionFilter("AVR .c files", "c"),
-        new FileNameExtensionFilter("AVR .asm or .s files", "asm", "s"),
+      new FileNameExtensionFilter("AVR .c files", "c"),
+      new FileNameExtensionFilter("AVR .asm or .s files", "asm", "s"),
     };
     String ext = prefs.get("default.extension", "c");
     for (FileNameExtensionFilter filter : filters) {
@@ -170,9 +183,10 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     }
     showMessageDialog(this,
       "By: Wayne Holder\n" +
-        "tmpDir:  " + tmpDir + "\n" +
-        "tmpExy:  " + tmpExe + "\n" +
-        "Java Version:" + System.getProperty("java.version") + "\n" +
+        "java.io.tmpdir: " + tempBase + "\n" +
+        "tmpDir: " + tmpDir + "\n" +
+        "tmpExe: " + tmpExe + "\n" +
+        "Java Version: " + System.getProperty("java.version") + "\n" +
         "Java Simple Serial Connector: " + SerialNativeInterface.getLibraryVersion() + "\n" +
         "JSSC Native Code DLL Version: " + SerialNativeInterface.getNativeLibraryVersion() + "\n",
       "ATtiny10IDE " + VERSION, INFORMATION_MESSAGE,  icon);
@@ -206,6 +220,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       listPane.setForeground(Color.red);
       hexPane.setForeground(Color.red);
     });
+    MarkupView howToPane = new MarkupView("documentation/index.md");
+    tabPane.addTab("How To", null, howToPane, "This is the documentation page");
     tabPane.addTab("Source Code", null, codePane, "This is the editor pane where you enter source code");
     listPane = new MyTextPane(tabPane, "Listing", "Select this pane to view the assembler listing");
     listPane.addHyperlinkListener(ev -> {
@@ -222,6 +238,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     progPane = new MyTextPane(tabPane, "Programmer", "Records communication with Arduino-based programmer");
     infoPane = new MyTextPane(tabPane, "Error Info", "Displays additional information about errors");
     infoPane.append("os.name: " + osName + "\n");
+    infoPane.append("os:      " + os.toString() + "\n");
+
     // Add menu bar and menus
     JMenuBar menuBar = new JMenuBar();
     // Add "File" Menu
@@ -322,6 +340,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     // Add "Actions" Menu
     JMenu actions = new JMenu("Actions");
     actions.add(mItem = new JMenuItem("Build"));
+    mItem.setToolTipText("Complile Code in Source Code Pane and Display Result in Listing and Hex Output Panes");
     mItem.setAccelerator(BUILD_KEY);
     mItem.addActionListener(e -> {
       if (cFile != null) {
@@ -400,6 +419,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       }
     });
     JMenuItem preprocess = new JMenuItem("Run Preprocessor");
+    preprocess.setToolTipText("Run GCC Propressor and Display Result in Listing Pane");
     actions.add(preprocess);
     prefs.addPreferenceChangeListener(evt -> preprocess.setVisible(prefs.getBoolean("enable_preprocessing", false)));
     preprocess.addActionListener(e -> {
@@ -454,6 +474,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     actions.add(tpiProg);
     actions.addSeparator();
     tpiProg.add(mItem = new JMenuItem("Program Device"));
+    mItem.setToolTipText("Commands TPI Programmer to Upload and Program Code to Device");
     mItem.addActionListener(e -> {
       try {
         if (canProgram()) {
@@ -476,6 +497,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       }
     });
     tpiProg.add(mItem = new JMenuItem("Generate Arduino Programmer Code"));
+    mItem.setToolTipText("Generates Arduino Sketch that can Program Device with Built Code");
     mItem.addActionListener(e -> {
       if (canProgram()) {
         String protocol = progProtocol.get(chip.toLowerCase()).prog;
@@ -530,6 +552,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       }
     });
     tpiProg.add(mItem = new JMenuItem("Calibrate Clock"));
+    mItem.setToolTipText("Commands TPI Programmer to Upload and Run Clock Calibration Code on Device");
     mItem.addActionListener(e -> {
       try {
         if (jPort != null && jPort.isOpen()) {
@@ -539,26 +562,28 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           jPort.sendString("\nD\n" + hex + "\n");
           jPort.sendString("M\n");
         } else {
-          showErrorDialog("Serial port not selected!");
+          showErrorDialog("Serial Port not selected!");
         }
       } catch (Exception ex) {
         showErrorDialog(ex.getMessage());
       }
     });
     tpiProg.add(mItem = new JMenuItem("Device Signature"));
+    mItem.setToolTipText("Commands TPI Programmer to Read and Send Back Device's Signature");
     mItem.addActionListener(e -> {
       try {
         if (jPort != null && jPort.isOpen()) {
           selectTab(Tab.PROG);
           jPort.sendString("S\n");
         } else {
-          showErrorDialog("Serial port not selected!");
+          showErrorDialog("Serial Port not selected!");
         }
       } catch (Exception ex) {
         showErrorDialog(ex.getMessage());
       }
     });
     tpiProg.add(mItem = new JMenuItem("Power On"));
+    mItem.setToolTipText("Commands TPI Programmer to Switch On Power to Device");
     mItem.addActionListener(e -> {
       try {
         jPort.sendString("V\n");
@@ -568,6 +593,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       }
     });
     tpiProg.add(mItem = new JMenuItem("Power Off"));
+    mItem.setToolTipText("Commands TPI Programmer to Switch Off Power to Device");
     mItem.addActionListener(e -> {
       try {
         jPort.sendString("X\n");
@@ -582,6 +608,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     JMenu icpProg = new JMenu("ISP Programmer");
     actions.add(icpProg);
     icpProg.add(mItem = new JMenuItem("Program Device"));
+    mItem.setToolTipText("Commands Selected ISP Programmer Upload and Program Code to Device");
     mItem.addActionListener(e -> {
       try {
         if (canProgram()) {
@@ -604,14 +631,15 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
               tags.put("PROG", ispProgrammer);
               tags.put("TDIR", tmpDir);
               tags.put("CHIP", chip);
-              String exec = Utility.replaceTags("avrdude -Pusb -c *[PROG]* -p *[CHIP]* -U flash:w:*[TDIR]*code.hex", tags);
-              String cmd = tmpExe + "bin" + System.getProperty("file.separator") + exec;
+              tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
+              String exec = Utility.replaceTags("avrdude -v -Pusb -C *[CFG]* -c *[PROG]* -p *[CHIP]* -U flash:w:*[TDIR]*code.hex", tags);
+              String cmd = tmpExe + "bin" + fileSep + exec;
               System.out.println("Run: " + cmd);
               Process proc = Runtime.getRuntime().exec(cmd);
               String ret = Utility.runCmd(proc);
               int retVal = proc.waitFor();
               if (retVal != 0) {
-                progPane.append("Error: " + ret + "\n");
+                progPane.append("Error Programming:\n" + ret + "\n");
               } else {
                 progPane.append(ret + "\n");
               }
@@ -628,20 +656,22 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     });
 
     icpProg.add(mItem = new JMenuItem("Device Signature"));
+    mItem.setToolTipText("Commands Selected ISP Programmer to Read and Send Back Device's Signature");
     mItem.addActionListener(e -> {
       try {
         Map<String, String> tags = new HashMap<>();
         tags.put("PROG", ispProgrammer);
         tags.put("TDIR", tmpDir);
         tags.put("CHIP", chip != null ? chip : "attiny85");
-        String exec = Utility.replaceTags("avrdude -Pusb -c *[PROG]* -p *[CHIP]* -F -U signature:r:*[TDIR]*sig.hex:h", tags);
-        String cmd = tmpExe + "bin" + System.getProperty("file.separator") + exec;
+        tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
+        String exec = Utility.replaceTags("avrdude -v -Pusb -C *[CFG]* -c *[PROG]* -p *[CHIP]* -F -U signature:r:*[TDIR]*sig.hex:h", tags);
+        String cmd = tmpExe + "bin" + fileSep + exec;
         System.out.println("Run: " + cmd);
         Process proc = Runtime.getRuntime().exec(cmd);
         String ret = Utility.runCmd(proc);
         int retVal = proc.waitFor();
         if (retVal != 0) {
-          progPane.setText("Error: " + ret + "\n");
+          progPane.setText("Error Reading Device Signature:\n" + ret + "\n");
           selectTab(Tab.PROG);
           return;
         }
@@ -661,9 +691,10 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     });
 
     icpProg.add(mItem = new JMenuItem("Read Fuses"));
+    mItem.setToolTipText("Commands Selected ISP Programmer to Read and Send Back Device's Fuse Settings");
     mItem.addActionListener(e -> {
       if (chip == null) {
-        showErrorDialog("Chip type not defined");
+        showErrorDialog("Chip type not defined (code must be built to define)");
         return;
       }
       try {
@@ -672,15 +703,17 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         tags.put("PROG", ispProgrammer);
         tags.put("TDIR", tmpDir);
         tags.put("CHIP", chip);
-        String exec = Utility.replaceTags("avrdude -Pusb -c *[PROG]* -p *[CHIP]* -U lfuse:r:*[TDIR]*lfuse.hex:h " +
-            "-U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
-        String cmd = tmpExe + "bin" + System.getProperty("file.separator") + exec;
+        tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
+        String exec = Utility.replaceTags("avrdude -v -Pusb -C *[CFG]* -c *[PROG]* -p *[CHIP]* -U lfuse:r:*[TDIR]*lfuse.hex:h " +
+                                          "-U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
+        String cmd = tmpExe + "bin" + fileSep + exec;
         System.out.println("Run: " + cmd);
         Process proc = Runtime.getRuntime().exec(cmd);
+        System.out.println("1");
         String ret = Utility.runCmd(proc);
         int retVal = proc.waitFor();
         if (retVal != 0) {
-          progPane.setText("Error: " + ret + "\n");
+          progPane.setText("Error Reading Fuses:\n" + ret + "\n");
           selectTab(Tab.PROG);
           return;
         }
@@ -702,7 +735,12 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       }
     });
     icpProg.add(mItem = new JMenuItem("Program Fuses"));
+    mItem.setToolTipText("Commands Selected ISP Programmer to Program Device's Fuses to Nre Settings");
     mItem.addActionListener(e -> {
+      if (chip == null) {
+        showErrorDialog("Chip type not defined (code must be built to define)");
+        return;
+      }
       try {
         if (canProgram()) {
           ChipInfo chipInfo = progProtocol.get(chip.toLowerCase());
@@ -729,15 +767,16 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
               tags.put("PROG", ispProgrammer);
               tags.put("TDIR", tmpDir);
               tags.put("CHIP", chip);
-              String exec = Utility.replaceTags("avrdude -Pusb -c *[PROG]* -p *[CHIP]* -U lfuse:r:*[TDIR]*lfuse.hex:h " +
-                "-U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
-              String cmd = tmpExe + "bin" + System.getProperty("file.separator") + exec;
+              tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
+              String exec = Utility.replaceTags("avrdude -v -Pusb -C *[CFG]* -c *[PROG]* -p *[CHIP]* -U lfuse:r:*[TDIR]*lfuse.hex:h " +
+                                                "-U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
+              String cmd = tmpExe + "bin" + fileSep + exec;
               System.out.println("Run: " + cmd);
               Process proc = Runtime.getRuntime().exec(cmd);
               String ret = Utility.runCmd(proc);
               int retVal = proc.waitFor();
               if (retVal != 0) {
-                progPane.append("Error: " + ret + "\n");
+                progPane.append("Error Programming Fuses (read):\n" + ret + "\n");
                 return;
               }
               int[] chipFuses = {
@@ -753,14 +792,14 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
                 tags.put("FVAL", "0x" + Integer.toHexString(dFuse).toUpperCase());
                 if (dFuse != cFuse) {
                   // Update fuse value
-                  exec = Utility.replaceTags("avrdude -Pusb -c *[PROG]* -p *[CHIP]* -U *[FUSE]*:w:*[FVAL]*:m", tags);
-                  cmd = tmpExe + "bin" + System.getProperty("file.separator") + exec;
+                  exec = Utility.replaceTags("avrdude -v -Pusb -C *[CFG]* -c *[PROG]* -p *[CHIP]* -U *[FUSE]*:w:*[FVAL]*:m", tags);
+                  cmd = tmpExe + "bin" + fileSep + exec;
                   System.out.println("Run: " + cmd);
                   proc = Runtime.getRuntime().exec(cmd);
                   ret = Utility.runCmd(proc);
                   retVal = proc.waitFor();
                   if (retVal != 0) {
-                    progPane.append("Error: " + ret + "\n");
+                    progPane.append("Error Programming Fuses (write):\n" + ret + "\n");
                     return;
                   } else {
                     out.append(ret);
@@ -783,6 +822,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     });
     actions.addSeparator();
     actions.add(mItem = new JMenuItem("Reinstall Toolchain"));
+    mItem.setToolTipText("Copies AVR Toolchain into Java Temporary Disk Space where it can be Executed");
     mItem.addActionListener(e -> installToolchain(true));
     menuBar.add(actions);
     // Add Settings menu
@@ -794,7 +834,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     // Add "Foze Size" Menu with submenu
     settings.add(codePane.getFontSizeMenu());
     settings.addSeparator();
-    JMenu tpiSettings = new JMenu("TPI Programmer");
+    JMenu tpiSettings = new JMenu("Serial Port");
     settings.add(tpiSettings);
     settings.addSeparator();
     tpiSettings.setEnabled(false);
@@ -813,7 +853,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     });
     portThread.start();
     JMenu icspProg = new JMenu("ISP Programmer");
+    icspProg.setToolTipText("Select ISP Programmer");
     try {
+      ButtonGroup icspGroup = new ButtonGroup();
       Map<String,String> pgrmrs = Utility.toTreeMap(Utility.getResourceMap("icsp_programmers.props"));
       for (String key : pgrmrs.keySet()) {
         String val = pgrmrs.get(key);
@@ -825,6 +867,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           val = val.substring(0, idxs) + val.substring(idxe + 1);
         }
         JRadioButtonMenuItem item = new JRadioButtonMenuItem(val);
+        icspGroup.add(item);
         if (toolTip != null) {
           item.setToolTipText("<html>" + toolTip + "</html>");
         }
@@ -853,6 +896,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         }
       }
     });
+    setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+    setSize(prefs.getInt("window.width", 800), prefs.getInt("window.height", 900));
+    setLocation(prefs.getInt("window.x", 10), prefs.getInt("window.y", 10));
     // Track window resize/move events and save in prefs
     addComponentListener(new ComponentAdapter() {
       public void componentMoved (ComponentEvent ev)  {
@@ -866,9 +912,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         prefs.putInt("window.height", bounds.height);
       }
     });
-    setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-    setSize(prefs.getInt("window.width", 800), prefs.getInt("window.height", 900));
-    setLocation(prefs.getInt("window.x", 10), prefs.getInt("window.y", 10));
     setVisible(true);
     installToolchain(prefs.getBoolean("reload_toolchain", false));
   }
@@ -915,32 +958,47 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     return false;
   }
 
+  static Font getCodeFont (int points) {
+    String os = System.getProperty("os.name").toLowerCase();
+    if (os.contains("win")) {
+      return new Font("Consolas", Font.PLAIN, points);
+    } else if (os.contains("mac")) {
+      return new Font("Menlo", Font.PLAIN, points);
+    } else if (os.contains("linux")) {
+      return new Font("Courier", Font.PLAIN, points);
+    } else {
+      return new Font("Courier", Font.PLAIN, points);
+    }
+  }
+
   private void installToolchain (boolean reinstall) {
     // Create temporary scratch directory for compiler
-    File tmp = (new File(System.getProperty("java.io.tmpdir") + "avr-temp-code"));
+    File tmp = (new File(tempBase + "avr-temp-code"));
     if (!tmp.exists()) {
-      tmp.mkdir();
+      tmp.mkdirs();
     }
     try {
-      tmpDir = tmp.getAbsolutePath() + System.getProperty("file.separator");
+      tmpDir = tmp.getAbsolutePath() + fileSep;
       // Install AVR Toolchain if it's not already installed
-      tmp = (new File(System.getProperty("java.io.tmpdir") + "avr-toolchain"));
+      tmp = (new File(tempBase + "avr-toolchain"));
       if (reinstall || !tmp.exists()) {
-        tmp.mkdir();
-        tmpExe = tmp.getAbsolutePath() + System.getProperty("file.separator");
-        if (osName.contains("windows")) {
-          new ToolchainLoader(this, "WinToolchain.zip", tmpExe);
-        } else if (osName.contains("mac")) {
-          new ToolchainLoader(this, "MacToolchain.zip", tmpExe);
-        } else {
-          throw new IllegalStateException("Unsupported os: " + osName);
+        tmp.mkdirs();
+        tmpExe = tmp.getAbsolutePath() + fileSep;
+        if (os == OpSys.WIN) {
+          new ToolchainLoader(this, "toolchains/WinToolchain.zip", tmpExe);
+        } else if (os == OpSys.MAC) {
+          new ToolchainLoader(this, "toolchains/MacToolchain.zip", tmpExe);
+        } else if (os == OpSys.LINUX) {
+          new ToolchainLoader(this, "toolchains/L64Toolchain.zip", tmpExe);
         }
       } else {
-        tmpExe = tmp.getAbsolutePath() + System.getProperty("file.separator");
+        tmpExe = tmp.getAbsolutePath() + fileSep;
       }
       prefs.remove("reload_toolchain");
     } catch (Exception ex) {
       ex.printStackTrace();
+      selectTab(Tab.LIST);
+      listPane.setText("Unable to Install Toolchain:\n" + ex.toString());
     }
   }
 
@@ -986,7 +1044,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     private String        srcZip, tmpExe;
 
     ToolchainLoader (JFrame comp, String srcZip, String tmpExe) {
-      super(comp, "Loading AVR Toolchain");
+      super(comp, "Installing AVR Toolchain");
       this.srcZip = srcZip;
       this.tmpExe = tmpExe;
       (new Thread(this)).start();
@@ -996,7 +1054,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       try {
         File dst = new File(tmpExe);
         if (!dst.exists()) {
-          dst.mkdir();
+          dst.mkdirs();
         }
         infoPane.append("srcZip: " + srcZip + "\n");
         ZipFile zip = null;
@@ -1023,7 +1081,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             File dstFile = new File(dst, src);
             File dstDir = dstFile.getParentFile();
             if (!dstDir.exists()) {
-              dstDir.mkdir();
+              dstDir.mkdirs();
             }
             if (entry.isDirectory()) {
               dstFile.mkdirs();
