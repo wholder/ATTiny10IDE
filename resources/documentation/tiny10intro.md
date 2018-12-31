@@ -19,7 +19,7 @@ The ATTiny10 series microcontrollers include the following devices, all of which
 All devices in the ATTiny10 Series include a 16 bit timer with Prescaler and Two PWM Channels, Programmable Watchdog Timer with Separate On-chip Oscillator and an on-chip Analog Comparator.
 
 #### Analog to Digital converters
-The ATTiny5 and ATTiny 10 each have 4 channel, 8-bit ADC converters. The ATTiny4 and ATTiny9 do not.
+The ATTiny5 and ATTiny10 each have 4 channel, 8-bit ADC converters. The ATTiny4 and ATTiny9 do not.
 
 #### I/O Ports and Pins
 
