@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
+import java.util.List;
 import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -121,6 +122,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       Document doc = getDocument();
       try {
         doc.insertString(doc.getLength(), text, null);
+        repaint();
       } catch (Exception ex) {
         ex.printStackTrace();
       }
@@ -189,20 +191,30 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         "Java Version: " + System.getProperty("java.version") + "\n" +
         "Java Simple Serial Connector: " + SerialNativeInterface.getLibraryVersion() + "\n" +
         "JSSC Native Code DLL Version: " + SerialNativeInterface.getNativeLibraryVersion() + "\n",
-      "ATtiny10IDE " + VERSION, INFORMATION_MESSAGE,  icon);
+        "ATtiny10IDE " + VERSION, INFORMATION_MESSAGE,  icon);
   }
 
-  private void showPreferences () {
-    ParmDialog.ParmItem[][] parmSet = {{
-      new ParmDialog.ParmItem("Enable Preprocessing (Developer){*[PREPROCESS]*}", prefs.getBoolean("enable_preprocessing", true)),
-      new ParmDialog.ParmItem("Generate Prototypes (Experimental){*[GEN_PROTOS]*}", prefs.getBoolean("gen_prototypes", true)),
-    }};
-    ParmDialog dialog = new ParmDialog(parmSet, null, new String[] {"Save", "Cancel"});
+  private void showPreferences (int modifiers) {
+    List<ParmDialog.ParmItem> items = new ArrayList<>();
+    items.add(new ParmDialog.ParmItem("Generate Prototypes (Experimental){*[GEN_PROTOS]*}",
+                                      prefs.getBoolean("gen_prototypes", true)));
+    boolean devFeatures = (modifiers & InputEvent.CTRL_MASK) != 0;
+    if (devFeatures) {
+      items.add(new ParmDialog.ParmItem("Enable Preprocessing (Developer){*[PREPROCESS]*}",
+                                        prefs.getBoolean("enable_preprocessing", false)));
+      items.add(new ParmDialog.ParmItem("Enable Developer Features{*[DEV_ONLY]*}",
+                                        prefs.getBoolean("developer_features", false)));
+    }
+    ParmDialog.ParmItem[] parmSet = items.toArray(new ParmDialog.ParmItem[0]);
+    ParmDialog dialog = new ParmDialog(new ParmDialog.ParmItem[][] {parmSet}, null, new String[] {"Save", "Cancel"});
     dialog.setLocationRelativeTo(this);
     dialog.setVisible(true);              // Note: this call invokes dialog
     if (dialog.wasPressed()) {
-      prefs.putBoolean("enable_preprocessing",  parmSet[0][0].value);
-      prefs.putBoolean("gen_prototypes",        parmSet[0][1].value);
+      prefs.putBoolean("gen_prototypes",        parmSet[0].value);
+      if (devFeatures) {
+        prefs.putBoolean("enable_preprocessing",  parmSet[1].value);
+        prefs.putBoolean("developer_features",    parmSet[2].value);
+      }
     }
   }
 
@@ -234,12 +246,11 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         System.out.println(ev.getDescription());
       }
     });
-    hexPane = new MyTextPane(tabPane, "Hex Output", "Intel Hex Output file for programmer");
+    hexPane =  new MyTextPane(tabPane, "Hex Output", "Intel Hex Output file for programmer");
     progPane = new MyTextPane(tabPane, "Programmer", "Records communication with Arduino-based programmer");
     infoPane = new MyTextPane(tabPane, "Error Info", "Displays additional information about errors");
     infoPane.append("os.name: " + osName + "\n");
     infoPane.append("os:      " + os.toString() + "\n");
-
     // Add menu bar and menus
     JMenuBar menuBar = new JMenuBar();
     // Add "File" Menu
@@ -248,13 +259,13 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     fileMenu.add(mItem = new JMenuItem("About"));
     mItem.addActionListener(e -> showAboutBox());
     fileMenu.add(mItem = new JMenuItem("Preferences"));
-    mItem.addActionListener(e -> showPreferences());
+    mItem.addActionListener(e -> showPreferences(e.getModifiers()));
     fileMenu.addSeparator();
     fileMenu.add(mItem = new JMenuItem("New"));
     mItem.addActionListener(e -> {
       if (codePane.getText().length() == 0 || discardChanges()) {
         codePane.setForeground(Color.black);
-        codePane.setText("");
+        codePane.setCode("");
         directHex = false;
         compiled = false;
         setDirtyIndicator(codeDirty = false);
@@ -271,19 +282,23 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           try {
             File oFile = fc.getSelectedFile();
             prefs.put("default.extension", ((FileNameExtensionFilter) fc.getFileFilter()).getExtensions()[0]);
-            String tmp = Utility.getFile(oFile);
-            if (tmp.contains(":00000001FF")) {
-              if (!tmp.startsWith(":020000020000FC")) {
-                tmp = ":020000020000FC\n" + tmp;
+            String src = Utility.getFile(oFile);
+            if (src.contains(":00000001FF")) {
+              if (!src.startsWith(":020000020000FC")) {
+                src = ":020000020000FC\n" + src;
               }
               hexPane.setForeground(Color.black);
-              hexPane.setText(tmp);
+              hexPane.setText(src);
               selectTab(Tab.HEX);
               directHex = true;
             } else {
               cFile = oFile;
               codePane.setForeground(Color.black);
-              codePane.setText(tmp);
+              String[] tmp = Utility.decodeMarkdown(src);
+              codePane.setCode(tmp[0]);
+              if (tmp.length > 1) {
+                codePane.setMarkup(tmp[1]);
+              }
               prefs.put("default.dir", editFile = oFile.getAbsolutePath());
               setDirtyIndicator(codeDirty = false);
               directHex = false;
@@ -328,7 +343,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.setAccelerator(QUIT_KEY);
     mItem.addActionListener(e -> {
       if (!codeDirty  ||  discardChanges()) {
-        if (jPort != null && jPort.isOpen()) {
+        if (jPort.isOpen()) {
           jPort.close();
         }
         System.exit(0);
@@ -481,7 +496,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           String hex = hexPane.getText();
           String protocol = progProtocol.get(chip.toLowerCase()).prog;
           if ("TPI".equals(protocol)) {
-            if (jPort != null && jPort.isOpen()) {
+            if (jPort.isOpen()  ||  jPort.reopen()) {
               selectTab(Tab.PROG);
               progPane.append("\nSending Code for: " + cFile.getName());
               jPort.sendString("\nD\n" + hex + "\n");
@@ -555,7 +570,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.setToolTipText("Commands TPI Programmer to Upload and Run Clock Calibration Code on Device");
     mItem.addActionListener(e -> {
       try {
-        if (jPort != null && jPort.isOpen()) {
+        if (jPort.isOpen()  ||  jPort.reopen()) {
           selectTab(Tab.PROG);
           String hex = Utility.getFile("res:clockcal.hex");
           progPane.append("\nProgramming Clock Code");
@@ -572,7 +587,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.setToolTipText("Commands TPI Programmer to Read and Send Back Device's Signature");
     mItem.addActionListener(e -> {
       try {
-        if (jPort != null && jPort.isOpen()) {
+        if (jPort.isOpen()  ||  jPort.reopen()) {
           selectTab(Tab.PROG);
           jPort.sendString("S\n");
         } else {
@@ -586,8 +601,11 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.setToolTipText("Commands TPI Programmer to Switch On Power to Device");
     mItem.addActionListener(e -> {
       try {
-        jPort.sendString("V\n");
-
+        if (jPort.isOpen()  ||  jPort.reopen()) {
+          jPort.sendString("V\n");
+        } else {
+          showErrorDialog("Serial Port not selected!");
+        }
       } catch (Exception ex) {
         showErrorDialog(ex.getMessage());
       }
@@ -596,8 +614,11 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.setToolTipText("Commands TPI Programmer to Switch Off Power to Device");
     mItem.addActionListener(e -> {
       try {
-        jPort.sendString("X\n");
-
+        if (jPort.isOpen()  ||  jPort.reopen()) {
+          jPort.sendString("X\n");
+        } else {
+          showErrorDialog("Serial Port not selected!");
+        }
       } catch (Exception ex) {
         showErrorDialog(ex.getMessage());
       }
@@ -610,6 +631,13 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     icpProg.add(mItem = new JMenuItem("Program Device"));
     mItem.setToolTipText("Commands Selected ISP Programmer Upload and Program Code to Device");
     mItem.addActionListener(e -> {
+      if (chip == null) {
+        showErrorDialog("Chip type not defined (code must be built to define)");
+        return;
+      }
+      selectTab(Tab.PROG);
+      progPane.setText("");
+      Thread tt = new Thread(() -> {
       try {
         if (canProgram()) {
           String hex = hexPane.getText();
@@ -632,16 +660,23 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
               tags.put("TDIR", tmpDir);
               tags.put("CHIP", chip);
               tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
-              String exec = Utility.replaceTags("avrdude -v -Pusb -C *[CFG]* -c *[PROG]* -p *[CHIP]* -U flash:w:*[TDIR]*code.hex", tags);
+              String exec;
+              if ("arduino".equals(ispProgrammer)) {
+                jPort.close();
+                tags.put("PORT", jPort.getPortName());
+                exec = Utility.replaceTags("avrdude -v -C *[CFG]* -c *[PROG]* -p *[CHIP]* -U flash:w:*[TDIR]*code.hex " +
+                                           "-P *[PORT]* -b 19200", tags);
+              } else {
+                exec = Utility.replaceTags("avrdude -v -Pusb -C *[CFG]* -c *[PROG]* -p *[CHIP]* -U flash:w:*[TDIR]*code.hex", tags);
+              }
               String cmd = tmpExe + "bin" + fileSep + exec;
               System.out.println("Run: " + cmd);
               Process proc = Runtime.getRuntime().exec(cmd);
-              String ret = Utility.runCmd(proc);
+              Utility.runCmd(proc, progPane);
               int retVal = proc.waitFor();
               if (retVal != 0) {
-                progPane.append("Error Programming:\n" + ret + "\n");
-              } else {
-                progPane.append(ret + "\n");
+                showErrorDialog("Error Programming Device Signature with " + ispProgrammer);
+                return;
               }
             } catch (IllegalStateException ex) {
               ex.printStackTrace();
@@ -654,25 +689,37 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         showErrorDialog(ex.getMessage());
       }
     });
+    tt.start();
+    });
 
     icpProg.add(mItem = new JMenuItem("Device Signature"));
     mItem.setToolTipText("Commands Selected ISP Programmer to Read and Send Back Device's Signature");
     mItem.addActionListener(e -> {
+      selectTab(Tab.PROG);
+      progPane.setText("");
+      Thread tt = new Thread(() -> {
       try {
         Map<String, String> tags = new HashMap<>();
         tags.put("PROG", ispProgrammer);
         tags.put("TDIR", tmpDir);
         tags.put("CHIP", chip != null ? chip : "attiny85");
         tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
-        String exec = Utility.replaceTags("avrdude -v -Pusb -C *[CFG]* -c *[PROG]* -p *[CHIP]* -F -U signature:r:*[TDIR]*sig.hex:h", tags);
+        String exec;
+        if ("arduino".equals(ispProgrammer)) {
+          jPort.close();
+          tags.put("PORT", jPort.getPortName());
+          exec = Utility.replaceTags("avrdude -v -C *[CFG]* -c *[PROG]* -p *[CHIP]* -F -U signature:r:*[TDIR]*sig.hex:h " +
+                                     "-P *[PORT]* -b 19200", tags);
+        } else {
+          exec = Utility.replaceTags("avrdude -v -Pusb -C *[CFG]* -c *[PROG]* -p *[CHIP]* -F -U signature:r:*[TDIR]*sig.hex:h", tags);
+        }
         String cmd = tmpExe + "bin" + fileSep + exec;
         System.out.println("Run: " + cmd);
         Process proc = Runtime.getRuntime().exec(cmd);
-        String ret = Utility.runCmd(proc);
+        Utility.runCmd(proc, progPane);
         int retVal = proc.waitFor();
         if (retVal != 0) {
-          progPane.setText("Error Reading Device Signature:\n" + ret + "\n");
-          selectTab(Tab.PROG);
+          showErrorDialog("Error Reading Device Signature with " + ispProgrammer);
           return;
         }
         String tmp = Utility.getFile(Utility.replaceTags("*[TDIR]*sig.hex", tags)).trim().toUpperCase().replace('X', 'x');
@@ -684,10 +731,11 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         }
         String device = sigLookup.get(buf.toString());
         progPane.setText("Device Signature: " + tmp + " - " + (device != null ? device : "unknown") + "\n");
-        selectTab(Tab.PROG);
       } catch (Exception ex) {
         ex.printStackTrace();
       }
+      });
+      tt.start();
     });
 
     icpProg.add(mItem = new JMenuItem("Read Fuses"));
@@ -697,128 +745,145 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         showErrorDialog("Chip type not defined (code must be built to define)");
         return;
       }
-      try {
-        // Read current fuse settings from chip
-        Map<String, String> tags = new HashMap<>();
-        tags.put("PROG", ispProgrammer);
-        tags.put("TDIR", tmpDir);
-        tags.put("CHIP", chip);
-        tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
-        String exec = Utility.replaceTags("avrdude -v -Pusb -C *[CFG]* -c *[PROG]* -p *[CHIP]* -U lfuse:r:*[TDIR]*lfuse.hex:h " +
-                                          "-U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
-        String cmd = tmpExe + "bin" + fileSep + exec;
-        System.out.println("Run: " + cmd);
-        Process proc = Runtime.getRuntime().exec(cmd);
-        System.out.println("1");
-        String ret = Utility.runCmd(proc);
-        int retVal = proc.waitFor();
-        if (retVal != 0) {
-          progPane.setText("Error Reading Fuses:\n" + ret + "\n");
+      selectTab(Tab.PROG);
+      progPane.setText("");
+      ATTinyC ref = this;
+      Thread tt = new Thread(() -> {
+        try {
+          progPane.setText("");
           selectTab(Tab.PROG);
-          return;
-        }
-        int lFuse = Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*lfuse.hex", tags)).trim());
-        int hFuse = Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*hfuse.hex", tags)).trim());
-        int eFuse = Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*efuse.hex", tags)).trim());
-        ParmDialog.ParmItem[][] parmSet = getFuseParms(lFuse, hFuse, eFuse);
-        for (ParmDialog.ParmItem[] col : parmSet) {
-          for (ParmDialog.ParmItem parm : col) {
-            parm.readOnly = true;
+          // Read current fuse settings from chip
+          Map<String, String> tags = new HashMap<>();
+          tags.put("PROG", ispProgrammer);
+          tags.put("TDIR", tmpDir);
+          tags.put("CHIP", chip);
+          tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
+          String exec;
+          if ("arduino".equals(ispProgrammer)) {
+            jPort.close();
+            tags.put("PORT", jPort.getPortName());
+            exec = Utility.replaceTags("avrdude -v -C *[CFG]* -c *[PROG]* -p *[CHIP]* -U lfuse:r:*[TDIR]*lfuse.hex:h " +
+                "-U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h -P *[PORT]* -b 19200", tags);
+          } else {
+            exec = Utility.replaceTags("avrdude -v -Pusb -C *[CFG]* -c *[PROG]* -p *[CHIP]* -U lfuse:r:*[TDIR]*lfuse.hex:h " +
+                "-U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
           }
+          String cmd = tmpExe + "bin" + fileSep + exec;
+          System.out.println("Run: " + cmd);
+          Process proc = Runtime.getRuntime().exec(cmd);
+          Utility.runCmd(proc, progPane);
+          int retVal = proc.waitFor();
+          if (retVal != 0) {
+            showErrorDialog("Error Reading Fuses with " + ispProgrammer);
+            return;
+          }
+          int lFuse = Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*lfuse.hex", tags)).trim());
+          int hFuse = Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*hfuse.hex", tags)).trim());
+          int eFuse = Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*efuse.hex", tags)).trim());
+          ParmDialog.ParmItem[][] parmSet = getFuseParms(lFuse, hFuse, eFuse);
+          for (ParmDialog.ParmItem[] col : parmSet) {
+            for (ParmDialog.ParmItem parm : col) {
+              parm.readOnly = true;
+            }
+          }
+          String[] tabs = {"LFUSE", "HFUSE", "EFUSE"};
+          ParmDialog dialog = new ParmDialog(parmSet, tabs, new String[] {"OK"});
+          dialog.setLocationRelativeTo(ref);
+          dialog.setVisible(true);              // Note: this call invokes dialog
+        } catch (Exception ex) {
+          ex.printStackTrace();
         }
-        String[] tabs = {"LFUSE", "HFUSE", "EFUSE"};
-        ParmDialog dialog = new ParmDialog(parmSet, tabs, new String[] {"OK"});
-        dialog.setLocationRelativeTo(this);
-        dialog.setVisible(true);              // Note: this call invokes dialog
-      } catch (Exception ex) {
-        ex.printStackTrace();
-      }
+      });
+      tt.start();
     });
     icpProg.add(mItem = new JMenuItem("Program Fuses"));
-    mItem.setToolTipText("Commands Selected ISP Programmer to Program Device's Fuses to Nre Settings");
+    mItem.setToolTipText("Commands Selected ISP Programmer to Program Device's Fuses to New Settings");
     mItem.addActionListener(e -> {
       if (chip == null) {
         showErrorDialog("Chip type not defined (code must be built to define)");
         return;
       }
-      try {
+      selectTab(Tab.PROG);
+      progPane.setText("");
+      Thread tt = new Thread(() -> {
+        try {
         if (canProgram()) {
           ChipInfo chipInfo = progProtocol.get(chip.toLowerCase());
-          switch (chipInfo.prog) {
-          case "TPI":
-            selectTab(Tab.PROG);
-            showErrorDialog("TPI not currently supported using ISCP Programmer");
-            break;
-          case "ISP":
-            selectTab(Tab.PROG);
-            progPane.setText("");
-            Map<String,String> fuseDefaults = Utility.csvToMap(chipInfo.fuses);
-            int lFuse = Integer.decode(Utility.choose(compileMap.get("PRAGMA.LFUSE"), "0x" + fuseDefaults.get("l")));
-            int hFuse = Integer.decode(Utility.choose(compileMap.get("PRAGMA.HFUSE"), "0x" + fuseDefaults.get("h")));
-            int eFuse = Integer.decode(Utility.choose(compileMap.get("PRAGMA.EFUSE"), "0x" + fuseDefaults.get("e")));
-            ParmDialog.ParmItem[][] parmSet = getFuseParms(lFuse, hFuse, eFuse);
-            String[] tabs = {"LFUSE", "HFUSE", "EFUSE"};
-            ParmDialog dialog = new ParmDialog(parmSet, tabs, new String[] {"Program", "Cancel"});
-            dialog.setLocationRelativeTo(this);
-            dialog.setVisible(true);              // Note: this call invokes dialog
-            if (dialog.wasPressed()) {
-              // Read current fuse settings
-              Map<String, String> tags = new HashMap<>();
-              tags.put("PROG", ispProgrammer);
-              tags.put("TDIR", tmpDir);
-              tags.put("CHIP", chip);
-              tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
-              String exec = Utility.replaceTags("avrdude -v -Pusb -C *[CFG]* -c *[PROG]* -p *[CHIP]* -U lfuse:r:*[TDIR]*lfuse.hex:h " +
-                                                "-U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
-              String cmd = tmpExe + "bin" + fileSep + exec;
-              System.out.println("Run: " + cmd);
-              Process proc = Runtime.getRuntime().exec(cmd);
-              String ret = Utility.runCmd(proc);
-              int retVal = proc.waitFor();
-              if (retVal != 0) {
-                progPane.append("Error Programming Fuses (read):\n" + ret + "\n");
-                return;
-              }
-              int[] chipFuses = {
-                Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*lfuse.hex", tags)).trim()),
-                Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*hfuse.hex", tags)).trim()),
-                Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*efuse.hex", tags)).trim())
-              };
-              StringBuilder out = new StringBuilder();
-              for (int ii = 0; ii < chipFuses.length; ii++) {
-                int dFuse = dialog.fuseSet[ii].fuseValue;
-                int cFuse = chipFuses[ii];
-                tags.put("FUSE", tabs[ii].toLowerCase());
-                tags.put("FVAL", "0x" + Integer.toHexString(dFuse).toUpperCase());
-                if (dFuse != cFuse) {
-                  // Update fuse value
-                  exec = Utility.replaceTags("avrdude -v -Pusb -C *[CFG]* -c *[PROG]* -p *[CHIP]* -U *[FUSE]*:w:*[FVAL]*:m", tags);
-                  cmd = tmpExe + "bin" + fileSep + exec;
-                  System.out.println("Run: " + cmd);
-                  proc = Runtime.getRuntime().exec(cmd);
-                  ret = Utility.runCmd(proc);
-                  retVal = proc.waitFor();
-                  if (retVal != 0) {
-                    progPane.append("Error Programming Fuses (write):\n" + ret + "\n");
-                    return;
-                  } else {
-                    out.append(ret);
-                  }
-                  System.out.println(tabs[ii] + " from 0x" + Integer.toHexString(cFuse).toUpperCase() +
-                                    " to 0x" + Integer.toHexString(dFuse).toUpperCase());
-                } else {
-                  out.append("Leaving ").append(tags.get("FUSE")).append(" unchanged at ").append(tags.get("FVAL")).append("\n");
-                }
-                progPane.setText(out.toString());
-              }
+          progPane.setText("");
+          Map<String,String> fuseDefaults = Utility.csvToMap(chipInfo.fuses);
+          int lFuse = Integer.decode(Utility.choose(compileMap.get("PRAGMA.LFUSE"), "0x" + fuseDefaults.get("l")));
+          int hFuse = Integer.decode(Utility.choose(compileMap.get("PRAGMA.HFUSE"), "0x" + fuseDefaults.get("h")));
+          int eFuse = Integer.decode(Utility.choose(compileMap.get("PRAGMA.EFUSE"), "0x" + fuseDefaults.get("e")));
+          ParmDialog.ParmItem[][] parmSet = getFuseParms(lFuse, hFuse, eFuse);
+          String[] tabs = {"LFUSE", "HFUSE", "EFUSE"};
+          ParmDialog dialog = new ParmDialog(parmSet, tabs, new String[] {"Program", "Cancel"});
+          dialog.setLocationRelativeTo(this);
+          dialog.setVisible(true);              // Note: this call invokes dialog
+          if (dialog.wasPressed()) {
+            // Read current fuse settings
+            Map<String, String> tags = new HashMap<>();
+            tags.put("PROG", ispProgrammer);
+            tags.put("TDIR", tmpDir);
+            tags.put("CHIP", chip);
+            tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
+            String exec;
+            if ("arduino".equals(ispProgrammer)) {
+              jPort.close();
+              tags.put("PORT", jPort.getPortName());
+              exec = Utility.replaceTags("avrdude -v -C *[CFG]* -c *[PROG]* -p *[CHIP]* -U lfuse:r:*[TDIR]*lfuse.hex:h " +
+                                         "-U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h -P *[PORT]* -b 19200", tags);
             } else {
-              System.out.println("Cancel");
+              exec = Utility.replaceTags("avrdude -v -Pusb -C *[CFG]* -c *[PROG]* -p *[CHIP]* -U lfuse:r:*[TDIR]*lfuse.hex:h " +
+                                         "-U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
             }
+            String cmd = tmpExe + "bin" + fileSep + exec;
+            System.out.println("Run: " + cmd);
+            Process proc = Runtime.getRuntime().exec(cmd);
+            String ret = Utility.runCmd(proc, progPane);
+            int retVal = proc.waitFor();
+            if (retVal != 0) {
+              showErrorDialog("Error Reading Fuses with " + ispProgrammer);
+              return;
+            }
+            int[] chipFuses = {
+              Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*lfuse.hex", tags)).trim()),
+              Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*hfuse.hex", tags)).trim()),
+              Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*efuse.hex", tags)).trim())
+            };
+            StringBuilder out = new StringBuilder();
+            for (int ii = 0; ii < chipFuses.length; ii++) {
+              int dFuse = dialog.fuseSet[ii].fuseValue;
+              int cFuse = chipFuses[ii];
+              tags.put("FUSE", tabs[ii].toLowerCase());
+              tags.put("FVAL", "0x" + Integer.toHexString(dFuse).toUpperCase());
+              if (dFuse != cFuse) {
+                // Update fuse value
+                exec = Utility.replaceTags("avrdude -v -Pusb -C *[CFG]* -c *[PROG]* -p *[CHIP]* -U *[FUSE]*:w:*[FVAL]*:m", tags);
+                cmd = tmpExe + "bin" + fileSep + exec;
+                System.out.println("Run: " + cmd);
+                proc = Runtime.getRuntime().exec(cmd);
+                Utility.runCmd(proc);
+                retVal = proc.waitFor();
+                if (retVal != 0) {
+                  showErrorDialog("Error Writing Fuses with " + ispProgrammer);
+                  return;
+                }
+                System.out.println(tabs[ii] + " from 0x" + Integer.toHexString(cFuse).toUpperCase() +
+                                  " to 0x" + Integer.toHexString(dFuse).toUpperCase());
+              } else {
+                out.append("Leaving ").append(tags.get("FUSE")).append(" unchanged at ").append(tags.get("FVAL")).append("\n");
+              }
+              progPane.setText(out.toString());
+            }
+          } else {
+            System.out.println("Cancel");
           }
         }
       } catch (Exception ex) {
         ex.printStackTrace();
       }
+      });
+      tt.start();
     });
     actions.addSeparator();
     actions.add(mItem = new JMenuItem("Reinstall Toolchain"));
@@ -889,7 +954,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     addWindowListener(new WindowAdapter() {
       public void windowClosing (WindowEvent ev) {
         if (!codeDirty  ||  discardChanges()) {
-          if (jPort != null && jPort.isOpen()) {
+          if (jPort.isOpen()) {
             jPort.close();
           }
           System.exit(0);
@@ -1023,9 +1088,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       frame.setVisible(true);
     }
 
-    void setMessage (String msg) {
-      txt.setText(msg);
-    }
     void setValue (int value) {
       progress.setValue(value);
     }

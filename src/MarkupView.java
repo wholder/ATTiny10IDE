@@ -26,7 +26,7 @@ class MarkupView extends JPanel {
   private JEditorPane       jEditorPane;
   private ArrayList<String> stack = new ArrayList<>();
   private String            basePath = "", currentPage;
-  private String            codeFont;
+  private String            codeFont, markup;
 
   {
     String os = System.getProperty("os.name").toLowerCase();
@@ -117,12 +117,12 @@ class MarkupView extends JPanel {
     }
   }
 
-  MarkupView (String markup) {
-    int idx = markup.lastIndexOf("/");
-    if (idx >= 0) {
-      basePath = markup.substring(0, idx + 1);
-      markup = markup.substring(idx + 1);
-    }
+  MarkupView (String loc) {
+    this();
+    loadMarkup(loc);
+  }
+
+  MarkupView () {
     setLayout(new BorderLayout());
     jEditorPane = new JEditorPane();
     JScrollPane scrollPane = new JScrollPane(jEditorPane);
@@ -133,7 +133,7 @@ class MarkupView extends JPanel {
         if (link.startsWith("file://")) {
           link = link.substring(7);
           stack.add(currentPage);
-          loadPage(basePath + link);
+          loadMarkup(basePath + link);
           back.setVisible(stack.size() > 0);
         } else {
           if (Desktop.isDesktopSupported()) {
@@ -152,7 +152,7 @@ class MarkupView extends JPanel {
     back.addActionListener(e -> {
       if (stack.size() > 0) {
         String prev = stack.remove(stack.size() - 1);
-        loadPage(prev);
+        loadMarkup(prev);
         jEditorPane.setCaretPosition(0);
         back.setVisible(stack.size() > 0);
       }
@@ -176,17 +176,27 @@ class MarkupView extends JPanel {
     styleSheet.addRule("ul li {font-size: 12px; margin-top: 3px; margin-bottom: 3px;}");
     styleSheet.addRule("code {font-family: " + codeFont + "; font-size: 12px; margin-bottom: 3px;}");
     styleSheet.addRule("p {font-size: 12px; margin-top: 5px; margin-bottom: 5px;}");
-    loadPage(basePath + markup);
   }
 
-  private void loadPage (String loc) {
-    try {
-      String html = Processor.process(new String(getResource(loc)));
-      jEditorPane.setText(html);
-      currentPage = loc;
-      jEditorPane.setCaretPosition(0);
-    } catch (Exception ex) {
-      ex.printStackTrace();
+  public void setText (String markup) {
+    String html = Processor.process(this.markup = markup);
+    jEditorPane.setText(html);
+  }
+
+  public void loadMarkup (String loc) {
+    if (loc != null) {
+      int idx = loc.lastIndexOf("/");
+      if (idx >= 0) {
+        basePath = loc.substring(0, idx + 1);
+        loc = loc.substring(idx + 1);
+      }
+      try {
+        setText(new String(getResource(basePath + loc)));
+        currentPage = loc;
+        jEditorPane.setCaretPosition(0);
+      } catch (Exception ex) {
+        ex.printStackTrace();
+      }
     }
   }
 

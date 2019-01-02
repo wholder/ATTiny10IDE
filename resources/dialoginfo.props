@@ -24,3 +24,4 @@ This develeoper feature can be used to run the source code through the C++ Prepr
 generator code and then display the result in the Listings pane.
 GEN_PROTOS:<b>Enable Automatic Prototype Geneeration</b><br/>When this experimental feature enabled, the "Build" operation attempts to \
 automatically generate function prototypes for all functions in the main source file before running the compiler.
+DEV_ONLY:<b>Enable Developer-Only Features</b><br/>When enabled, some otherwise hidden features used to test code are made available.

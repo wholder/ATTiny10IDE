@@ -93,37 +93,57 @@ public class JSSCPort implements SerialPortEventListener {
     return baudRate;
   }
 
+  public String getPortName () {
+    return portName;
+  }
+
   public void close () {
     if (serialPort != null) {
       try {
+        serialPort.removeEventListener();
         serialPort.closePort();
+        serialPort = null;
       } catch (SerialPortException ex) {
         ex.printStackTrace();
       }
     }
   }
 
+  public boolean reopen () {
+    if (serialPort == null) {
+      serialPort = new SerialPort(portName);
+      try {
+        serialPort.openPort();
+        serialPort.setParams(baudRate, dataBits, stopBits, parity, false, false);  // baud, 8 bits, 1 stop bit, no parity
+        serialPort.setEventsMask(eventMasks);
+        serialPort.setFlowControlMode(flowCtrl);
+        serialPort.addEventListener(JSSCPort.this);
+        return true;
+      } catch (SerialPortException ex) {
+        ex.printStackTrace();
+      }
+    }
+    return false;
+  }
+
   public void serialEvent (SerialPortEvent se) {
     try {
-      switch (se.getEventType()) {
-        case SerialPortEvent.RXCHAR: {
-          int rxCount = se.getEventValue();
-          byte[] inChars = serialPort.readBytes(rxCount);
-          if (rxHandlers.size() > 0) {
-            for (byte cc : inChars) {
-              for (RXEvent handler : rxHandlers) {
-                handler.rxChar(cc);
-              }
+      if (se.getEventType() == SerialPortEvent.RXCHAR) {
+        int rxCount = se.getEventValue();
+        byte[] inChars = serialPort.readBytes(rxCount);
+        if (rxHandlers.size() > 0) {
+          for (byte cc : inChars) {
+            for (RXEvent handler : rxHandlers) {
+              handler.rxChar(cc);
             }
-          } else {
-            for (byte cc : inChars) {
-              if (queue.remainingCapacity() > 0) {
-                queue.add((int) cc);
-              }
+          }
+        } else {
+          for (byte cc : inChars) {
+            if (queue.remainingCapacity() > 0) {
+              queue.add((int) cc);
             }
           }
         }
-        break;
       }
     } catch (Exception ex) {
       ex.printStackTrace();

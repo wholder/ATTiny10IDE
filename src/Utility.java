@@ -1,4 +1,6 @@
+import javax.swing.*;
 import java.io.*;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -7,6 +9,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 class Utility {
+  private static final String   StartMarker = "//:Begin Embedded Markdown Data (do not edit)";
+  private static final String   EndMarker = "\n//:End Embedded Markdown Data";
   private static Utility   util = new Utility();
   private static char[]    hex = {'0', '1', '2', '3', '4', '5', '6', '7',
                                   '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
@@ -119,11 +123,29 @@ class Utility {
   static String runCmd (Process proc) {
     return Stream.of(proc.getErrorStream(), proc.getInputStream()).parallel().map((InputStream isForOutput) -> {
       StringBuilder output = new StringBuilder();
-      try (BufferedReader br = new BufferedReader(new InputStreamReader(isForOutput))) {
+      try (
+        BufferedReader br = new BufferedReader(new InputStreamReader(isForOutput))) {
         String line;
         while ((line = br.readLine()) != null) {
           output.append(line);
           output.append("\n");
+        }
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+      return output;
+    }).collect(Collectors.joining());
+  }
+
+  static String runCmd (Process proc, ATTinyC.MyTextPane pane) {
+    return Stream.of(proc.getErrorStream(), proc.getInputStream()).parallel().map((InputStream isForOutput) -> {
+      StringBuilder output = new StringBuilder();
+      try (
+        BufferedReader br = new BufferedReader(new InputStreamReader(isForOutput))) {
+        String line;
+        while ((line = br.readLine()) != null) {
+          pane.append(line);
+          pane.append("\n");
         }
       } catch (IOException e) {
         throw new RuntimeException(e);
@@ -144,6 +166,43 @@ class Utility {
       fOut.close();
     } else {
       throw new IllegalStateException("copyResourceToDir() " + fName + " unable to copy");
+    }
+  }
+
+  /**
+   * Scans input code for a comment block containing encoded markdown text and, if present, extracts and
+   * decodes it along with the source code (minus the comment block)
+   * @param src input source code with optional encoded and embedded comment block
+   * @return String[] array of length 1 of no embedded markdown, else String[] of length 2 where first
+   * element in the array if the source code (mius the block comment) and the 2nd element is the extracted
+   * and decoded markdown text.
+   */
+  public static String[] decodeMarkdown (String src) {
+    try {
+      List<String> list = new ArrayList<>();
+      int idx1 = src.indexOf(StartMarker);
+      int idx2 = src.indexOf(EndMarker);
+      if (idx1 >= 0 && idx2 > idx1) {
+        list.add(src.substring(0, idx1) + src.substring(idx2 + EndMarker.length()));
+        String tmp = src.substring(idx1 + StartMarker.length(), idx2);
+        StringTokenizer tok = new StringTokenizer(tmp, "\n");
+        StringBuilder buf = new StringBuilder();
+        while (tok.hasMoreElements()) {
+          String line = (String) tok.nextElement();
+          if (line.startsWith("//:") && line.length() == 128 + 3) {
+            buf.append(line.substring(3));
+          }
+        }
+        tmp = new String(Base64.getDecoder().decode(buf.toString()), StandardCharsets.UTF_8);
+        tmp = URLDecoder.decode(tmp, "utf8");
+        list.add(tmp);
+      } else {
+        list.add(src);
+      }
+      return list.toArray(new String[0]);
+    } catch (UnsupportedEncodingException ex) {
+      ex.printStackTrace();
+      return new String[] {src};
     }
   }
 

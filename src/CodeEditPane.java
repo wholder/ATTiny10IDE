@@ -18,6 +18,8 @@ import java.util.prefs.Preferences;
 
 class CodeEditPane extends JPanel {
   private JEditorPane         codePane;
+  private JScrollPane         codeScrollpane;
+  private MarkupView          docPane;
   private CodeChangeListener  codeChangeListener;
   private DefaultSyntaxKit    synKit;
   private Preferences         prefs;
@@ -29,8 +31,8 @@ class CodeEditPane extends JPanel {
     synKit = new DefaultSyntaxKit(new CppLexer());
     codePane = new JEditorPane();
     synKit.addComponents(codePane);
-    JScrollPane scroll = new JScrollPane(codePane);
-    add(scroll, BorderLayout.CENTER);
+    codeScrollpane = new JScrollPane(codePane);
+    add(codeScrollpane, BorderLayout.CENTER);
     doLayout();
     // Note: must call setContentType(), setFont() after doLayout() or no line numbers and small font
     codePane.setContentType("text/cpp");
@@ -56,11 +58,42 @@ class CodeEditPane extends JPanel {
   }
 
   JMenu getEditMenu () {
-      return synKit.getEditMenu(codePane);
+    return synKit.getEditMenu(codePane);
   }
 
-  void setText (String text) {
-    codePane.setText(text);
+  private void splitPane () {
+    removeAll();
+    docPane = new MarkupView();
+    JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, docPane, codeScrollpane);
+    splitPane.setOneTouchExpandable(true);
+    splitPane.setDividerLocation(0);
+    add(splitPane, BorderLayout.CENTER);
+  }
+
+  void loadMarkup (String loc) {
+    if (docPane == null) {
+      docPane = new MarkupView();
+      splitPane();
+    }
+    docPane.loadMarkup(loc);
+  }
+
+
+  void setMarkup (String markup) {
+    if (docPane == null) {
+      docPane = new MarkupView();
+      splitPane();
+    }
+    docPane.setText(markup);
+  }
+
+  void setCode (String code) {
+    if (docPane != null) {
+      docPane = null;
+      removeAll();
+      add(codeScrollpane, BorderLayout.CENTER);
+    }
+    codePane.setText(code);
     codePane.setCaretPosition(0);
   }
 
@@ -78,7 +111,6 @@ class CodeEditPane extends JPanel {
     Point pt = new Point(x, y);
     return codePane.viewToModel(pt);
   }
-
 
   JMenu getTabSizeMenu () {
     JMenu tabs = new JMenu("Tab Size");
