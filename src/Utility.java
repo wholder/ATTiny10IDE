@@ -1,4 +1,3 @@
-import javax.swing.*;
 import java.io.*;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -114,7 +113,7 @@ class Utility {
         throw new IllegalStateException("Utility.replaceTags() Tag '" + tag + "' not defined");
       }
       try {
-        mat.appendReplacement(buf, rep != null ? Matcher.quoteReplacement(rep) : "");
+        mat.appendReplacement(buf, Matcher.quoteReplacement(rep));
       } catch (Exception ex) {
         throw (new IllegalStateException("tag = '" + tag + "'. rep = '" + rep + "'"));
       }
@@ -140,11 +139,11 @@ class Utility {
     }).collect(Collectors.joining());
   }
 
-  static String runCmd (Process proc, ATTinyC.MyTextPane pane) {
-    return Stream.of(proc.getErrorStream(), proc.getInputStream()).parallel().map((InputStream isForOutput) -> {
+  static void runCmd (Process proc, ATTinyC.MyTextPane pane) {
+    Stream.of(proc.getErrorStream(), proc.getInputStream()).parallel().map((InputStream isForOutput) -> {
       StringBuilder output = new StringBuilder();
       try (
-        BufferedReader br = new BufferedReader(new InputStreamReader(isForOutput))) {
+          BufferedReader br = new BufferedReader(new InputStreamReader(isForOutput))) {
         String line;
         while ((line = br.readLine()) != null) {
           pane.append(line);
@@ -180,7 +179,7 @@ class Utility {
    * element in the array if the source code (mius the block comment) and the 2nd element is the extracted
    * and decoded markdown text.
    */
-  public static String[] decodeMarkdown (String src) {
+  static String[] decodeMarkdown (String src) {
     try {
       List<String> list = new ArrayList<>();
       int idx1 = src.indexOf(StartMarker);
