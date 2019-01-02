@@ -110,6 +110,9 @@ class Utility {
     while (mat.find()) {
       String tag = mat.group(2);
       String rep = (String) tags.get(tag);
+      if (rep == null) {
+        throw new IllegalStateException("Utility.replaceTags() Tag '" + tag + "' not defined");
+      }
       try {
         mat.appendReplacement(buf, rep != null ? Matcher.quoteReplacement(rep) : "");
       } catch (Exception ex) {
