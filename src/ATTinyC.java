@@ -891,10 +891,11 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     tags.put("VBS", prefs.getBoolean("developer_features", false) ? "-v" : "");
     tags.put("PROG", ispProgrammer);
     tags.put("TDIR", tmpDir);
-    tags.put("CHIP", chip);
+    tags.put("CHIP", chip != null ? chip : "attiny85");
     tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
-    tags.put("OUT", "arduino".equals(ispProgrammer) ? "-P " + jPort.getPortName() + " -b 19200" : "-Pusb");
-    if ("arduino".equals(ispProgrammer)) {
+    boolean usesPort = "arduino".equals(ispProgrammer) || "buspirate".equals(ispProgrammer);
+    tags.put("OUT", usesPort ? "-P " + jPort.getPortName() + " -b 19200" : "-Pusb");
+    if (usesPort) {
       jPort.close();
     }
     String exec = Utility.replaceTags("avrdude *[VBS]* *[OUT]* -C *[CFG]* -c *[PROG]* -p *[CHIP]* " + op, tags);

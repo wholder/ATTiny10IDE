@@ -1,5 +1,6 @@
 stk500v2:           AVR ISP mkII{Uses AVR ISP mkII, or compatible as ISP programmer}
 usbtiny:            USBtinyISP{Uses ATtiny 2313 as ISP programmer}
+usbasp:             USBasp{Uses ATMega88 or ATMega8  as ISP programmer}
 arduino:            Arduino as ISP{Uses ArduinoISP sketch running on an Arduino as ISP Programmer}
 buspirate:          BusPirate as ISP{Bus Pirate V3 need Firmware v5.10 or later<br>Bus Pirate V4 need Firmware v6.3-r2151 or later}
 jtag3isp:           JTAGICE3 (ISP mode)
