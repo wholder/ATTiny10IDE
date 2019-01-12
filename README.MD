@@ -21,7 +21,7 @@ ATTiny10IDE supports several different ways to program your compiled code into a
 <p align="center"><img src="/images/TPI-Prog-Socket.png"></p>
     
 Here are the steps you can follow to program an ATTiny10 using this method:
- 1. Use "**`File->Open`**" to load the source file, or type your code into the "Source Code" pane and save it using the appropriate file extension.
+ 1. Use "**`File->Open`**" to load the _source_ file, or type your code into the "Source Code" pane and save it using the appropriate file extension.
  2. Select "**`Actions->Build`**" to compile. or assemble the code.
  3. Select "**`Actions->TPI Programmer->Generate Arduino Programmer Code`**" and save to a .ino (Arduino Sketch) file when prompted.
  4. Quit ATTiny10IDE so it does not interfere with the Arduino IDE's access to the Arduino's serial port.

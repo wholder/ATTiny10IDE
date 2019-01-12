@@ -1,0 +1,58 @@
+## Writing Arduino-style Code for the ATTiny84
+
+ATTiny10IDE currently supports using the ATTiny25/45/85 and ATTiny24/44/84 using ATTiny libraries originally developed by David A. Mellis, but later extended and improved by Spence Konde, James Sleeman and many others (see library headers and source files for further info).  As with the ATTiny10 series, ATTiny10IDE allows you to code in assembly (as a .s file), or plain C, or C++ and a `main()` function.  Or, if you include the "Arduino.h" header, ATTiny10IDE will then support coding as an Arduino-like sketch using `setup()` and `loop()` functions.  Here's an example of a basic "Blink" sketch for the ATTiny84 written like an Arduino sketch:
+
+    #pragma chip attiny84
+    #pragma efuse 0xFF        // default value
+    #pragma hfuse 0xDF        // default value
+    #pragma lfuse 0x62        // default value
+    #pragma define  NO_MILLIS
+    #pragma define  NO_TONE
+    
+    #include "Arduino.h"
+    
+    void setup() {
+      pinMode(10, OUTPUT);      // Setup pin 2 as an OUTPUT
+    }
+    
+    void loop() {
+      digitalWrite(10, HIGH);	// Turn on LED on pin 2
+      delay(500);
+      digitalWrite(10, LOW);    // Turn off LED on pin 2
+      delay(500);
+    }
+
+Notice the use of `#pragma` statements to select the chip type (`attiny84`) as well as the values for the fuses.  In addition, the `define` pragma allows you to pass in values to the compiler to enable, or disable certain features of the Arduino-compatible library code.  In this case, to save code space and interrupt overhead, the `NO_MILLIS` define turns off support for the `milllis()` function (and related code) and the `NO_TONE` define removes support for the Arduino `Tone()` function.  The following define values can also be to add support for Print-related functions:
+
+    PRINT_USE_BASE_BIN                    Bin Supported
+    PRINT_USE_BASE_HEX                    Hex Supported
+    PRINT_USE_BASE_OCT                    Oct Supported
+    PRINT_USE_BASE_DEC                    Dec Supported
+    PRINT_USE_BASE_ARBITRARY              Full Support For Arbitrary Bases, Biggest
+
+## Writing C-style Code for the ATTiny84
+
+For comparison, here's functionally the same program as the Arduino-style one shown above, but which is coded in C and uses a `main()` function instead of `setup()` and `loop()` methods:
+
+    #pragma chip attiny84
+    
+    #pragma lfuse 0x62          // default value
+    #pragma hfuse 0xDF          // default value
+    #pragma efuse 0xFF          // default value
+    
+    #include <avr/io.h>
+    #include <util/delay.h>
+    
+    int main () {
+      // put your setup code here, to run once:
+        DDRB |= (1 << PB0);     // Setup pin 2 as an OUTPUT
+      while (true) {
+      // put your code to run repeatedly inside this loop
+        PORTB |= (1 << PB0);	// Turn on LED on pin 2
+        _delay_ms(500);
+        PORTB &= ~(1 << PB0);   // Turn off LED on pin 2
+        _delay_ms(500);
+      }
+    }
+    
+This `#includes` in this code make use of the [avr-libc](https://www.nongnu.org/avr-libc/) libraries to access additional function such as `_delay_ms()`, which is defined in "`util/delay.h`", and port and pin definitions, such as `DDRB`, `PORTB` and `PB0`, which are defined in "`avr/io.h`".

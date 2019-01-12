@@ -25,7 +25,7 @@ import java.util.prefs.Preferences;
 class MarkupView extends JPanel {
   private JEditorPane       jEditorPane;
   private ArrayList<String> stack = new ArrayList<>();
-  private String            basePath = "", currentPage;
+  private String            basePath, currentPage;
   private String            codeFont, markup;
 
   {
@@ -133,7 +133,7 @@ class MarkupView extends JPanel {
         if (link.startsWith("file://")) {
           link = link.substring(7);
           stack.add(currentPage);
-          loadMarkup(basePath + link);
+          loadMarkup(link);
           back.setVisible(stack.size() > 0);
         } else {
           if (Desktop.isDesktopSupported()) {
@@ -175,7 +175,7 @@ class MarkupView extends JPanel {
     styleSheet.addRule("ol li {font-size: 12px; margin-top: 3px; margin-bottom: 3px;}");
     styleSheet.addRule("ul li {font-size: 12px; margin-top: 3px; margin-bottom: 3px;}");
     styleSheet.addRule("code {font-family: " + codeFont + "; font-size: 12px; margin-bottom: 3px;}");
-    styleSheet.addRule("p {font-size: 12px; margin-top: 5px; margin-bottom: 5px;}");
+    styleSheet.addRule("p {font-size: 12px; margin-top: 3px; margin-bottom: 3px;}");
   }
 
   public void setText (String markup) {
@@ -185,10 +185,14 @@ class MarkupView extends JPanel {
 
   public void loadMarkup (String loc) {
     if (loc != null) {
-      int idx = loc.lastIndexOf("/");
-      if (idx >= 0) {
-        basePath = loc.substring(0, idx + 1);
-        loc = loc.substring(idx + 1);
+      if (basePath == null) {
+        int idx = loc.lastIndexOf("/");
+        if (idx >= 0) {
+          basePath = loc.substring(0, idx + 1);
+          loc = loc.substring(idx + 1);
+        } else {
+          basePath = "";
+        }
       }
       try {
         setText(new String(getResource(basePath + loc)));

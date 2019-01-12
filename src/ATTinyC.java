@@ -237,6 +237,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     tabPane.addTab("How To", null, howToPane, "This is the documentation page");
     tabPane.addTab("Source Code", null, codePane, "This is the editor pane where you enter source code");
     listPane = new MyTextPane(tabPane, "Listing", "Select this pane to view the assembler listing");
+    listPane.setEditable(false);
     listPane.addHyperlinkListener(ev -> {
       if (ev.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
         String [] tmp = ev.getDescription().split(":");
@@ -250,6 +251,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     hexPane =  new MyTextPane(tabPane, "Hex Output", "Intel Hex Output file for programmer");
     progPane = new MyTextPane(tabPane, "Programmer", "Records communication with Arduino-based programmer");
     infoPane = new MyTextPane(tabPane, "Error Info", "Displays additional information about errors");
+    hexPane.setEditable(false);
+    progPane.setEditable(false);
+    infoPane.setEditable(false);
     infoPane.append("os.name: " + osName + "\n");
     infoPane.append("os:      " + os.toString() + "\n");
     // Add menu bar and menus
