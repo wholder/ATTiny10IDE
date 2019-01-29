@@ -30,7 +30,7 @@ Notice the use of `#pragma` statements to select the chip type (`attiny85`) as w
     PRINT_USE_BASE_DEC                    Dec Supported
     PRINT_USE_BASE_ARBITRARY              Full Support For Arbitrary Bases, Biggest
 
-## Writing C-style Code for the ATTiny85
+## Writing C-style Code for the ATTiny4/5/9/10
 
 For comparison, here's functionally the same program as the Arduino-style one shown above, but which is coded in C and uses a `main()` function instead of `setup()` and `loop()` methods:
 

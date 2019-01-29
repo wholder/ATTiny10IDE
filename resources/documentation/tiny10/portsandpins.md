@@ -1,4 +1,4 @@
-#### I/O Ports and Pins
+#### The ATTiny4/5/9/10's I/O Ports and Pins
 
 The following images show the functions for the various pins of the ATTiny10 series.
 

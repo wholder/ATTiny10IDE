@@ -1,4 +1,4 @@
-## Writing Arduino-style Code for the ATTiny10
+## Writing Arduino-style Code for the ATTiny4/5/9/10
 
 ATTiny10IDE allows you to code in assembly (as a .s file), or plain C, or C++ using a `main()` function.  Or, if you include the `Arduino.h` header, ATTiny10IDE will then support coding as an Arduino-like sketch using `setup()` and `loop()` functions.
 
@@ -24,7 +24,7 @@ Here's an example of a basic "Blink" sketch for the ATTiny10 written like an Ard
 
 Notice the use of `#pragma` statements to select the chip type (`attiny10`) as well as the values for the fuses. (Again, see tha Atmel datasheets for detail.)
 
-## Writing C-style Code for the ATTiny10
+## Writing C-style Code for the ATTiny4/5/9/10
 
 For comparison, here's a C program, with the same functionally as the Arduino-style one shown above, but which is coded in C and uses a `main()` function instead of the `setup()` and `loop()` methods:
 

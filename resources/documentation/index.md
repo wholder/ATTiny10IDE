@@ -5,11 +5,11 @@
     + [ATTiny Hardware Programmers](file://programmers.md)
     + [Understanding Fuses](file://fuses.md)
     
- + [The ATTiny10](file://tiny10/intro.md)
-    + [The ATTiny10's I/O Ports and Pins](file://tiny10/portsandpins.md)
-    + [Writing Code for the ATTiny10](file://tiny10/coding.md)
-    + [Dealing with the ATTiny10's Limited RAM Space](file://tiny10/ramspace.md)
-    + [Programming ATTiny10 Chips](file://tiny10/programming.md)
+ + [The ATTiny4/5/9/10](file://tiny10/intro.md)
+    + [The ATTiny4/5/9/10's I/O Ports and Pins](file://tiny10/portsandpins.md)
+    + [Writing Code for the ATTiny4/5/9/10](file://tiny10/coding.md)
+    + [Dealing with the ATTiny4/5/9/10's Limited RAM Space](file://tiny10/ramspace.md)
+    + [Programming ATTiny4/5/9/10 Chips](file://tiny10/programming.md)
     + [Advanced and Experimental Features](file://tiny10/advanced.md)
     
  + [The ATTiny24/44/84](file://tiny84/intro.md)

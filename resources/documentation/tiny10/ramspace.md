@@ -1,4 +1,4 @@
-## Dealing with the ATTiny10's Limited RAM Space
+## Dealing with the ATTiny4/5/9/10's Limited RAM Space
 
 The ATTiny10 prpovides only 32 bytes of RAM space for variables and the program call stack.  So, it's important to use `char` and `unsigned char` variables instead of `int` and `unsigned int` wherever possible and limit function call depth (recursion is not recommended), use stack variables carefully (variables declared in functions) and globally-declared arrays.  Fortunately, the AVR architecture has 32 registers available and the GNU compiler makes very eficient use of them, but there are still a few tricks that can help keep RAM usage under control.
 
