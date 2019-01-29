@@ -1,4 +1,4 @@
-## I/O Ports and Pins
+## The ATTiny24/44/84's I/O Ports and Pins
 
 The following image shows the functions for the various pins on the ATTiny84.  When coding an Arduino-like sketch (more below) for the ATTiny84, functions line `pinMode()` and` digitalWrite()` are used to access the physical I/O pins and you refer to a specific I/O pin using a number from 0-11.  For example, to set physical pin 2 as an output pin, you write `pinMode(10, OUTPUT)` and to set physical pin 2 to the HIGH state you write `digitalWrite(10, HIGH)`.
 

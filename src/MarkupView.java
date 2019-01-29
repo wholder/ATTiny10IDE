@@ -26,7 +26,7 @@ class MarkupView extends JPanel {
   private JEditorPane       jEditorPane;
   private ArrayList<String> stack = new ArrayList<>();
   private String            basePath, currentPage;
-  private String            codeFont, markup;
+  private String            codeFont;
 
   {
     String os = System.getProperty("os.name").toLowerCase();
@@ -135,7 +135,7 @@ class MarkupView extends JPanel {
           stack.add(currentPage);
           loadMarkup(link);
           back.setVisible(stack.size() > 0);
-        } else {
+        } else if (link.startsWith("http://") || link.startsWith("https://")) {
           if (Desktop.isDesktopSupported()) {
             try {
               Desktop.getDesktop().browse(new URI(link));
@@ -175,11 +175,11 @@ class MarkupView extends JPanel {
     styleSheet.addRule("ol li {font-size: 12px; margin-top: 3px; margin-bottom: 3px;}");
     styleSheet.addRule("ul li {font-size: 12px; margin-top: 3px; margin-bottom: 3px;}");
     styleSheet.addRule("code {font-family: " + codeFont + "; font-size: 12px; margin-bottom: 3px;}");
-    styleSheet.addRule("p {font-size: 12px; margin-top: 3px; margin-bottom: 3px;}");
+    styleSheet.addRule("p {font-size: 12px; margin-top: 5px; margin-bottom: 5px;}");
   }
 
   public void setText (String markup) {
-    String html = Processor.process(this.markup = markup);
+    String html = Processor.process(markup);
     jEditorPane.setText(html);
   }
 

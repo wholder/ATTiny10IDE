@@ -1,4 +1,4 @@
-## I/O Ports and Pins
+## The ATTiny25/45/85's I/O Ports and Pins
 
 The following image shows the functions for the various pins on the ATTiny85.  When coding an Arduino-like sketch (more below) for the ATTiny85, functions line `pinMode()` and` digitalWrite()` are used to access the physical I/O pins and you refer to a specific I/O pin using a number from 0-5.  For example, to set physical pin 5 as an output pin, you write `pinMode(0, OUTPUT)`  and to set physical pin 5 to the HIGH state you write `digitalWrite(0, HIGH)`.
 
