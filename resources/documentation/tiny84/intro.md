@@ -16,4 +16,5 @@ The ATTiny84 series microcontrollers include the following devices, all of which
 + ATTiny44 - 4K bytes Flash, 256 bytes RAM, 256 bytes EEPROM
 + ATTiny84 - 8K bytes Flash, 512 bytes RAM, 512 bytes EEPROM
 
-All devices in the ATTiny10 Series include one 8 bit timer and one 16 bit timer (each with a prescaler and two PWM channels), an 8 channel, 10 bit ADC, a Programmable Watchdog Timer with Separate On-chip Oscillator, and an on-chip Analog Comparator.
+All devices in the ATTiny10 Series include one 8 bit timer and one 16 bit timer (each with a pre-scaler and two PWM channels), an 8 channel, 10 bit ADC, a Programmable Watchdog Timer with Separate On-chip Oscillator, and an on-chip Analog Comparator.
+
