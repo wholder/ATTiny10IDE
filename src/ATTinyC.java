@@ -241,7 +241,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     listPane.addHyperlinkListener(ev -> {
       if (ev.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
         String [] tmp = ev.getDescription().split(":");
-        tabPane.setSelectedIndex(0);
+        selectTab(Tab.SRC);
         int line = Integer.parseInt(tmp[0]);
         int column = Integer.parseInt(tmp[1]);
         codePane.setPosition(line, column);

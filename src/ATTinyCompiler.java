@@ -237,8 +237,13 @@ class ATTinyCompiler {
     tags.put("DEFINES", defines.toString());
     // Build list of files we need to compile and link
     List<String> compFiles = new ArrayList<>();
-    out.put("INFO", "chip: " + tags.get("CHIP") + ", clock: " + tags.get("CLOCK") + ", fuses: " + Utility.hexChar(fuseBits));
     ATTinyC.ChipInfo chipInfo = ATTinyC.progProtocol.get(chip.toLowerCase());
+    if ("TPI".equals(chipInfo.prog)) {
+      out.put("INFO", "chip: " + chip + ", clock: " + tags.get("CLOCK") + ", fuses: " + Utility.hexChar(fuseBits));
+    } else {
+      out.put("INFO", "chip: " + chip + ", clock: " + tags.get("CLOCK") + ", lfuse: " + out.get("LFUSE") +
+          ", hfuse: " + out.get("HFUSE") +", efuse: " + out.get("EFUSE"));
+    }
     ATTinyC.ProgressBar progress = null;
     try {
       // Copy contents of "source" pane to temp file with appropriate extension for code type
