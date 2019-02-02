@@ -18,6 +18,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import javax.swing.*;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.text.Document;
@@ -57,7 +59,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private boolean                   directHex, compiled, codeDirty;
   private File                      cFile;
   private transient Preferences     prefs = Preferences.userRoot().node(this.getClass().getName());
-  private String                    ispProgrammer = prefs.get("icsp_programmer", "stk500v2");
+  private String                    ispProgrammer = prefs.get("icsp_programmer", "avrispmkII");
   private transient JSSCPort        jPort;
   private Map<String, String>       compileMap;
   private static Map<String,String> sigLookup = new HashMap<>();
@@ -83,12 +85,13 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   }
 
   static class ChipInfo {
-    String  prog, lib, fuses, signature;
+    String  prog, lib, part, fuses, signature;
     boolean useCore;
 
-    ChipInfo (String prog, String lib, String fuses, String signature, boolean useCore) {
+    ChipInfo (String prog, String lib, String part, String fuses, String signature, boolean useCore) {
       this.prog = prog;
       this.lib = lib;
+      this.part = part;             // For AVRDUDE -p switch
       this.fuses = fuses;
       this.signature = signature;
       this.useCore = useCore;
@@ -137,16 +140,16 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   static {
     // List of ATtiny types, Protocol used to Program them, etc.
     //       Part Name             Protocol   Library   Fuse(s)         Signature  UseCore
-    addChip("attiny4",  new ChipInfo("TPI",  "tiny10", "FF",             "1E8F0A", false));
-    addChip("attiny5",  new ChipInfo("TPI",  "tiny10", "FF",             "1E8F09", false));
-    addChip("attiny9",  new ChipInfo("TPI",  "tiny10", "FF",             "1E9008", false));
-    addChip("attiny10", new ChipInfo("TPI",  "tiny10", "FF",             "1E9003", false));
-    addChip("attiny24", new ChipInfo("ISP",  "tinyX4", "l:60,h:DF,e:FF", "1E910B", true));
-    addChip("attiny44", new ChipInfo("ISP",  "tinyX4", "l:60,h:DF,e:FF", "1E9207", true));
-    addChip("attiny84", new ChipInfo("ISP",  "tinyX4", "l:60,h:DF,e:FF", "1E930C", true));
-    addChip("attiny25", new ChipInfo("ISP",  "tinyX5", "l:60,h:DF,e:FF", "1E9108", true));
-    addChip("attiny45", new ChipInfo("ISP",  "tinyX5", "l:60,h:DF,e:FF", "1E9206", true));
-    addChip("attiny85", new ChipInfo("ISP",  "tinyX5", "l:60,h:DF,e:FF", "1E930B", true));
+    addChip("attiny4",  new ChipInfo("TPI",  "tiny10",  "t4", "FF",             "1E8F0A", false));
+    addChip("attiny5",  new ChipInfo("TPI",  "tiny10",  "t5", "FF",             "1E8F09", false));
+    addChip("attiny9",  new ChipInfo("TPI",  "tiny10",  "t9", "FF",             "1E9008", false));
+    addChip("attiny10", new ChipInfo("TPI",  "tiny10", "t10", "FF",             "1E9003", false));
+    addChip("attiny24", new ChipInfo("ISP",  "tinyX4", "t24", "l:60,h:DF,e:FF", "1E910B", true));
+    addChip("attiny44", new ChipInfo("ISP",  "tinyX4", "t44", "l:60,h:DF,e:FF", "1E9207", true));
+    addChip("attiny84", new ChipInfo("ISP",  "tinyX4", "t84", "l:60,h:DF,e:FF", "1E930C", true));
+    addChip("attiny25", new ChipInfo("ISP",  "tinyX5", "t25", "l:60,h:DF,e:FF", "1E9108", true));
+    addChip("attiny45", new ChipInfo("ISP",  "tinyX5", "t45", "l:60,h:DF,e:FF", "1E9206", true));
+    addChip("attiny85", new ChipInfo("ISP",  "tinyX5", "t85", "l:60,h:DF,e:FF", "1E930B", true));
   }
 
   {
@@ -356,7 +359,19 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     });
     menuBar.add(fileMenu);
     // Add "Edit" Menu
-    menuBar.add(codePane.getEditMenu());
+    JMenu editMenu = codePane.getEditMenu();
+    editMenu.setEnabled(false);
+    menuBar.add(editMenu);
+    tabPane.addChangeListener(new ChangeListener() {
+      @Override
+      public void stateChanged (ChangeEvent ev) {
+        if (tabPane.getSelectedIndex() == Tab.SRC.num) {
+          editMenu.setEnabled(true);
+        } else {
+          editMenu.setEnabled(false);
+        }
+      }
+    });
     // Add "Actions" Menu
     JMenu actions = new JMenu("Actions");
     actions.add(mItem = new JMenuItem("Build"));
@@ -895,10 +910,11 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     tags.put("VBS", prefs.getBoolean("developer_features", false) ? "-v" : "");
     tags.put("PROG", ispProgrammer);
     tags.put("TDIR", tmpDir);
-    tags.put("CHIP", chip != null ? chip : "attiny85");
+    ChipInfo chipInfo = progProtocol.get(chip.toLowerCase());
+    tags.put("CHIP", chipInfo != null ? chipInfo.part : "t85");
     tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
     boolean usesPort = "arduino".equals(ispProgrammer) || "buspirate".equals(ispProgrammer);
-    tags.put("OUT", usesPort ? "-P " + jPort.getPortName() + " -b 19200" : "-Pusb");
+    tags.put("OUT", usesPort ? "-P " + jPort.getPortName() + " -b 19200" : "-P usb");
     if (usesPort) {
       jPort.close();
     }
