@@ -11,7 +11,7 @@
 //                 +----+
 
 const unsigned char program[] PROGMEM  = { /*[CODE]*/ };
-const char          progName[] = "DelayBlink.c";
+const char          progName[] = "/*[NAME]*/";
 unsigned int        progSize;
 unsigned char       flashMem[1024];
 unsigned char       fuse = 0x0F;

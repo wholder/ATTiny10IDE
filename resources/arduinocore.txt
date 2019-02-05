@@ -2,10 +2,10 @@ tiny10/Arduino.cpp
 tiny10/Arduino.h
 tinyX4/pins_arduino.c
 tinyX4/pins_arduino.h
-tinyX4/Tone.cpp
+//tinyX4/Tone.cpp
 tinyX5/pins_arduino.c
 tinyX5/pins_arduino.h
-tinyX5/Tone.cpp
+//tinyX5/Tone.cpp
 // Arduino core functions (used by tinyX4 and tinyX5)
 tinyCore/Arduino.h
 tinyCore/abi.cpp
@@ -25,8 +25,8 @@ tinyCore/Print.h
 tinyCore/Printable.h
 tinyCore/Stream.cpp
 tinyCore/Stream.h
-tinyCore/TinySoftwareSerial.cpp
-tinyCore/TinySoftwareSerial.h
+//tinyCore/TinySoftwareSerial.cpp
+//tinyCore/TinySoftwareSerial.h
 //tinyCore/Tone.cpp - replaced by tinyX4/Tone.cpp and tinyX5/Tone.cpp
 tinyCore/WCharacter.h
 tinyCore/WInterrupts.c

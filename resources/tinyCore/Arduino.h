@@ -447,7 +447,8 @@ void delayMicroseconds(unsigned int us);
  * those functions (they are not optimised out if you don't use Serial
  * at all because they are declared as virtual by Stream)
  *===========================================================================*/
- 
+
+ /*
 #if (!defined(USE_SERIAL_TYPE)) && defined(USE_SOFTWARE_SERIAL) && USE_SOFTWARE_SERIAL
   #define USE_SERIAL_TYPE       SERIAL_TYPE_SOFTWARE
 #elif !defined(USE_SERIAL_TYPE)
@@ -460,6 +461,7 @@ void delayMicroseconds(unsigned int us);
 #else
   #define USE_SOFTWARE_SERIAL 0
 #endif
+*/
 
 /*=============================================================================
   Allow the ADC to be optional for low-power applications
@@ -516,6 +518,7 @@ void delayMicroseconds(unsigned int us);
 #include "WCharacter.h"
 #include "WString.h"
 
+/*
 #if USE_SERIAL_TYPE    == SERIAL_TYPE_HARDWARE
   #include "HardwareSerial.h"
 #elif USE_SERIAL_TYPE == SERIAL_TYPE_SOFTWARE
@@ -523,6 +526,7 @@ void delayMicroseconds(unsigned int us);
 #elif USE_SERIAL_TYPE == SERIAL_TYPE_HALF_DUPLEX
   #include "HalfDuplexSerial.h"
 #endif
+*/
 
 uint16_t makeWord(uint16_t w);
 uint16_t makeWord(byte h, byte l);

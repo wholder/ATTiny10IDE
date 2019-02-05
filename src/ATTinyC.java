@@ -411,7 +411,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
                 // Remove path to tmpDir from error messages
                 String errText = compileMap.get("ERR").replace(tmpDir + compName, trueName);
                 errText = errText.replace("\n", "<br>");
-                Pattern lineRef = Pattern.compile("(" + trueName + ":([0-9]+?:[0-9]+?):) (error|note):");
+                Pattern lineRef = Pattern.compile("(" + trueName + ":([0-9]+?:[0-9]+?):) (error|note|fatal error):");
                 Matcher mat = lineRef.matcher(errText);
                 StringBuffer buf = new StringBuffer("<html><body><tt>");
                 while (mat.find()) {
