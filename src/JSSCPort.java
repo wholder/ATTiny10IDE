@@ -6,6 +6,8 @@ import java.util.regex.Pattern;
 import jssc.*;
 
 import javax.swing.*;
+import javax.swing.event.MenuEvent;
+import javax.swing.event.MenuListener;
 
 /*
  * Encapsulates JSSC functionality into an easy to use class
@@ -238,31 +240,43 @@ public class JSSCPort implements SerialPortEventListener {
 
   public JMenu getPortMenu () {
     JMenu menu = new JMenu("Port");
-    ButtonGroup group = new ButtonGroup();
-    for (String pName : SerialPortList.getPortNames(macPat)) {
-      JRadioButtonMenuItem item = new JRadioButtonMenuItem(pName, pName.equals(portName));
-      menu.setVisible(true);
-      menu.add(item);
-      group.add(item);
-      item.addActionListener((ev) -> {
-        portName = ev.getActionCommand();
-        try {
-          if (serialPort != null && serialPort.isOpened()) {
-            serialPort.removeEventListener();
-            serialPort.closePort();
-          }
-          serialPort = new SerialPort(portName);
-          serialPort.openPort();
-          serialPort.setParams(baudRate, dataBits, stopBits, parity, false, false);  // baud, 8 bits, 1 stop bit, no parity
-          serialPort.setEventsMask(eventMasks);
-          serialPort.setFlowControlMode(flowCtrl);
-          serialPort.addEventListener(JSSCPort.this);
-          prefs.put("serial.port", portName);
-        } catch (Exception ex) {
-          ex.printStackTrace(System.out);
+    menu.addMenuListener(new MenuListener() {
+      @Override
+      public void menuSelected (MenuEvent e) {
+        // Populate menu on demand
+        menu.removeAll();
+        ButtonGroup group = new ButtonGroup();
+        for (String pName : SerialPortList.getPortNames(macPat)) {
+          JRadioButtonMenuItem item = new JRadioButtonMenuItem(pName, pName.equals(portName));
+          menu.setVisible(true);
+          menu.add(item);
+          group.add(item);
+          item.addActionListener((ev) -> {
+            try {
+              if (serialPort != null && serialPort.isOpened()) {
+                serialPort.removeEventListener();
+                serialPort.closePort();
+              }
+              serialPort = new SerialPort(portName = pName);
+              serialPort.openPort();
+              serialPort.setParams(baudRate, dataBits, stopBits, parity, false, false);  // baud, 8 bits, 1 stop bit, no parity
+              serialPort.setEventsMask(eventMasks);
+              serialPort.setFlowControlMode(flowCtrl);
+              serialPort.addEventListener(JSSCPort.this);
+              prefs.put("serial.port", pName);
+            } catch (Exception ex) {
+              ex.printStackTrace(System.out);
+            }
+          });
         }
-      });
-    }
+      }
+
+      @Override
+      public void menuDeselected (MenuEvent e) { }
+
+      @Override
+      public void menuCanceled (MenuEvent e) { }
+    });
     return menu;
   }
 
