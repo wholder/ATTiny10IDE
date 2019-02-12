@@ -2,6 +2,7 @@
 
 /*
  * ATtiny10 TPI Generated Programmer for IDE and non High Voltage Programmer
+ * IMPORTANT: Not Compatible with Emulator/Programmer board
  */
  
 //                 +-\/-+
@@ -14,7 +15,7 @@ const unsigned char program[] PROGMEM  = { /*[CODE]*/ };
 const char          progName[] = "/*[NAME]*/";
 unsigned int        progSize;
 unsigned char       flashMem[1024];
-unsigned char       fuse = 0x0F;
+unsigned char       fuse = 0x0/*[FUSE]*/;
 
 #define  BIT_TIME  1
 #define  VCC       2  // Pin 5 on ATtiny10
@@ -29,7 +30,7 @@ unsigned char       fuse = 0x0F;
 #define  NVMCMD  0x33
 #define  NVMCSR  0x32
 
-// NVM Commands
+// Define NVM Commands
 #define  NO_OPERATION  0x00
 #define  CHIP_ERASE    0x10
 #define  SECTION_ERASE 0x14
@@ -59,14 +60,13 @@ void enablePins () {
   delay(200);
 }
 
-
 void disablePins () {
   pinMode(VCC, INPUT);
-  digitalWrite(VCC, LOW);
+  digitalWrite(VCC, LOW); 
   pinMode(TPICLK, INPUT);
   digitalWrite(TPICLK, LOW);
   pinMode(TPIDAT, INPUT);
-  digitalWrite(TPIDAT, LOW);
+  digitalWrite(TPIDAT, LOW); 
   pinMode(RESET, INPUT);
   digitalWrite(RESET, LOW);
   delay(200);
@@ -196,7 +196,7 @@ void nvmWait () {
   }
 }
 
-boolean  enterCmdMode () {
+boolean powerOn () {
   enablePins();
   digitalWrite(VCC, HIGH);      // VCC on
   delay(128);                   // Wait 128 ms
@@ -210,7 +210,7 @@ boolean  enterCmdMode () {
   return true;
 }
 
-void releaseCmdMode () {
+void powerOff () {
   digitalWrite(RESET, HIGH);    // RESET Off
   delay(128);                   // Wait 128 ms
   digitalWrite(VCC, LOW);       // VCC off
@@ -223,8 +223,8 @@ void releaseCmdMode () {
  *  0x1E, 0x90, 0x08  ATtiny9
  *  0x1E, 0x90, 0x03  ATtiny10
  */
-void printSignature () {
-  if (enterCmdMode()) {
+boolean printSignature () {
+  if (powerOn()) {
     if (enterProgMode()) {
       // Read device signature
       Serial.println();
@@ -232,34 +232,34 @@ void printSignature () {
       setPointerReg(0x3FC0);        // Device Id Bytes
       unsigned char sig[3];
       for (unsigned char ii = 0; ii < 3; ii++) {
-        sig[ii] = readAndInc();
+        if (ii > 0) {
+          Serial.print(", ");
+        }
+        printHex(sig[ii] = readAndInc());
       }
-      boolean found = false;
       if (sig[0] == 0x1E) {
         if (sig[1] == 0x8f) {
           if (sig[2] == 0x0A) {
-            Serial.println("ATtiny4");
-            found = true;
+            Serial.println(" - ATTiny4");
           } else if (sig[2] == 0x09) {
-            Serial.println("ATtiny5");
-            found = true;
+            Serial.println(" - ATTiny5");
           }
         } else if (sig[1] == 0x90) {
           if (sig[2] == 0x08) {
-            Serial.println("ATtiny9");
-            found = true;
+            Serial.println(" - ATTiny9");
           } else if (sig[2] == 0x03) {
-            Serial.println("ATtiny10");
-            found = true;
+            Serial.println(" - ATTiny10");
           }
         }
       }
-      if (!found) {
-        Serial.println("Not found");
-      }
+      Serial.println();
     }
+    powerOff();
+    return true;
+  } else {
+    powerOff();
+    return false;
   }
-  releaseCmdMode();
 }
 
 // Read 1 second half cycle signal on TPIDAT Input
@@ -277,7 +277,7 @@ void measureClock () {
     // Must see TPIDAT change within 2 seconds, or timeout
     if ((millis() - timeout) > 2000) {
       Serial.println("Timeout");
-      releaseCmdMode();
+      powerOff();
       return;
     }
     state = digitalRead(TPIDAT);
@@ -311,6 +311,7 @@ void measureClock () {
   Serial.print("\nRecommended Clock Offset: 0x");
   Serial.println(mid, HEX);
   digitalWrite(VCC, LOW);       // VCC off
+  disablePins();
 }
 
 void setClockTweak (unsigned char val) {
@@ -329,7 +330,7 @@ void setClockTweak (unsigned char val) {
 }
 
 void printFuses () {
-  if (enterCmdMode()) {
+  if (powerOn()) {
     if (enterProgMode()) {
       // Read device signature
       Serial.print("Fuses:  ");
@@ -338,7 +339,7 @@ void printFuses () {
       Serial.println();
     }
   }
-  releaseCmdMode();
+  powerOff();
 }
 
 void printHex (unsigned char val) {
@@ -350,7 +351,7 @@ void printHex (unsigned char val) {
 }
 
 void writeFlash (unsigned char fuseByte) {
-  if (enterCmdMode()) {
+  if (powerOn()) {
     if (enterProgMode()) {
       Serial.print("\nProgramming");
       // Erase all flash bytes
@@ -402,27 +403,7 @@ void writeFlash (unsigned char fuseByte) {
       Serial.println(" bytes written");
     }
   }
-  releaseCmdMode();
-}
-
-void printInstructions () {
-  int ardPins[] = {2, 3, 4, 5, 6};
-  int tnyPins[] = {5, 3, 1, 6, 2};
-  if (sizeof(program) > 0) {
-    Serial.print("Programmer for: ");
-    Serial.print(progName);
-    Serial.print(" - ");
-    Serial.print(progSize, DEC);
-    Serial.println(" bytes");
-  }
-  Serial.println("Connect:");
-  for (int ii = 0; ii < 5; ii++) {
-    Serial.print("  Arduino pin D");
-    Serial.print(ardPins[ii], DEC);
-    Serial.print(" to ATtiny10 pin ");
-    Serial.println(tnyPins[ii]);
-  }
-  Serial.println("Commands:\n  P - Program ATtiny10\n  I - Identify ATtiny10");
+  powerOff();
 }
 
 unsigned int newDigit (unsigned int cVal, unsigned char digit) {
@@ -446,33 +427,33 @@ void download () {
     if (Serial.available() > 0) {
       unsigned char cc = Serial.read();
       timeout = millis();
-      if (cc == ':') {
+      if (cc == ':') {                    // Start of HexAscii line
         state = 1;
         len = 0;
         check = 0;
         add = 0;
-      } else if (cc == '*') {
+      } else if (cc == '*') {             // Start of Fuse line
         fuse = 0xFF;
-        state = 20;            // Program fuses
+        state = 20;                       // goto Read Fuse state
       } else {
         switch (state) {
-        case 1:               // Length MSD
-        case 2:               // Length LSD
+        case 1:                           // Length MSD
+        case 2:                           // Length LSD
           len = newDigit(len, cc);
           state++;
           break;
-        case 3:               // Address MSD
+        case 3:                           // Address MSD
         case 4:
         case 5:
-        case 6:               // Address LSD
+        case 6:                           // Address LSD
           add = newDigit(add, cc);
           state++;
           break;
-        case 7:               // Type MSD
+        case 7:                           // Type MSD
           type = newDigit(0, cc);
           state++;
           break;
-        case 8:               // Type LSD
+        case 8:                           // Type LSD
           type = newDigit(type, cc);
           if (len > 0) {
             state++;
@@ -480,37 +461,37 @@ void download () {
             state = 11;
           }
           break;
-        case 9:               // Data byte MSD
+        case 9:                           // Data byte MSD
           data = newDigit(0, cc);
           state++;
           break;
-        case 10:              // Data byte LSD
+        case 10:                          // Data byte LSD
           data = newDigit(data, cc);
           if (type == 0) {
             flashMem[add++] = data;
             progSize++;
           }
           if (--len > 0) {
-            state = 9;        // Get another data byte
+            state = 9;                    // Get another data byte
           } else {
-            state = 11;       // Get checksum
+            state = 11;                   // Get checksum
           }
           break;
-        case 11:              // Checksum MSD
-        case 12:              // Checksum LSD
+        case 11:                          // Checksum MSD
+        case 12:                          // Checksum LSD
           check = newDigit(check, cc);
           state++;
           break;
-        case 13:              // Wait for CR/LF
+        case 13:                          // Wait for CR/LF
           if (cc == 0x0A  ||  cc == 0x0D) {
             switch (type) {
-            case 0:           // Data record
+            case 0:                       // Data record
               Serial.print(".");
               break;
-            case 1:           // EOF Record
+            case 1:                       // EOF Record
               writeFlash(fuse);
              return;
-            case 2:           // Start of Record (actually extended segment address record)
+            case 2:                       // Start of Record (actually extended segment address record)
               // Set buffer space and fuse byte to unprogrammed flash value (0xFF)
               memset(flashMem, 0xFF, sizeof(flashMem));
               fuse = 0xFF;
@@ -519,7 +500,7 @@ void download () {
             state = 0;
           }
           break;
-        case 20:              // Fuse LS Byte
+        case 20:                          // Read Fuse LS Byte
           fuse = newDigit(fuse, cc);
           state = 0;
           break;
@@ -533,6 +514,23 @@ void download () {
       }
     }
   }
+}
+
+void printInstructions () {
+  int ardPins[] = {2, 3, 4, 5, 6};
+  int tnyPins[] = {5, 3, 1, 6, 2};
+  if (sizeof(program) > 0) {
+    Serial.print("Programmer for: ");
+    Serial.println(progName);
+  }
+  Serial.println("Connect:");
+  for (int ii = 0; ii < 5; ii++) {
+    Serial.print("  Arduino pin D");
+    Serial.print(ardPins[ii], DEC);
+    Serial.print(" to ATtiny10 pin ");
+    Serial.println(tnyPins[ii]);
+  }
+  Serial.println("Commands:\n  P - Program ATtiny10\n  I - Identify ATtiny10");
 }
 
 void loop () {
