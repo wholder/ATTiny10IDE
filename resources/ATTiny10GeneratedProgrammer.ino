@@ -56,6 +56,7 @@ void setup () {
     digitalWrite(SHDN, HIGH);     // 12v off
     pinMode(RELAY, OUTPUT);       // Connect RELAY
     digitalWrite(RELAY, LOW);     // Chip in Emulate mode (Relay Off)
+    Serial.print("\x06\x06");     // Send ACK ACK sequence tp signal ready
   } else {
     pinMode(GND, OUTPUT);         // Connect GND
     digitalWrite(GND, LOW);       // GND Always Low

@@ -881,11 +881,12 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   }
 
   private static class JPortSender implements Runnable, JSSCPort.RXEvent {
-    private String        send;
-    private JSSCPort      jPort;
-    private MyTextPane    progPane;
-    private int           timoutReset;
-    private volatile int  timeout;
+    private String            send;
+    private JSSCPort          jPort;
+    private MyTextPane        progPane;
+    private int               timoutReset;
+    private volatile int      timeout;
+    private volatile int      setupState;
 
     JPortSender (String send, JSSCPort jPort, MyTextPane progPane) throws Exception {
       this.send = send;
@@ -898,22 +899,42 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     }
 
     public void rxChar (byte cc) {
-      if (cc == 0x1B) {
-        timeout = 0;
-        return;
+      if (setupState < 2) {
+        // Watch for ACK ACK sequence to signal sketch is ready for commands
+        switch (setupState) {
+          case 0:
+            setupState = cc == (char) 0x06 ? 1 : 0;
+            break;
+          case 1:
+            setupState = cc == (char) 0x06 ? 2 : 0;
+            break;
+        }
+      } else {
+        // Watch for ESC to signal end of commands
+        if (cc == 0x1B) {
+          timeout = 0;
+          return;
+        }
       }
       timeout = timoutReset;
-      if (progPane != null) {
+      // Copy only printable chars and LF
+      if (progPane != null && (cc >= 0x20 || cc == '\n')) {
         String tmp = Character.toString((char) cc);
         progPane.append(tmp);
-        System.out.print(tmp);
       }
     }
 
     public void run () {
       try {
         // Wait for bootloader to time out so it doesn't swallow command
-        Thread.sleep(3000);
+        while (timeout-- > 0 && setupState < 2) {
+          try {
+            Thread.sleep(100);
+          } catch (Exception ex) {
+            ex.printStackTrace();
+          }
+        }
+        timeout = timoutReset;
         jPort.sendString(send + '*');
         while (timeout-- > 0) {
           try {
