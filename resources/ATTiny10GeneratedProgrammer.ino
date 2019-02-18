@@ -2,7 +2,7 @@
 
 /*
  * ATtiny10 TPI Generated Programmer for IDE and non High Voltage Programmer
- * IMPORTANT: Not Compatible with Emulator/Programmer board
+ * IMPORTANT: Not Compatible with original Emulator/Programmer board
  */
  
 //                 +-\/-+
@@ -16,15 +16,19 @@ const char          progName[] = "/*[NAME]*/";
 unsigned int        progSize;
 unsigned char       flashMem[1024];
 unsigned char       fuse = 0x0/*[FUSE]*/;
+boolean             hvMode = false;
 
 #define  BIT_TIME  1
-#define  VCC       2  // Pin 5 on ATtiny10
-#define  TPICLK    3  // Pin 3 on ATtiny10
-#define  TPIDAT    4  // Pin 1 on ATtiny10
-#define  RESET     5  // Pin 6 on ATtiny10
-#define  GND       6  // Pin 2 on ATtiny10
-
-#define DEBUG     0
+// Definitons for 5V Programmer
+#define  VCC        2   // Pin 5 on ATtiny10
+#define  TPICLK     3   // Pin 3 on ATtiny10
+#define  TPIDAT     4   // Pin 1 on ATtiny10
+#define  RESET      5   // Pin 6 on ATtiny10
+#define  GND        6   // Pin 2 on ATtiny10
+// Definitons for 12V Programmer (just different names for pins)
+#define  SHDN       5   // 0 to turn on 12V, 1 to disable
+#define  RELAY      6   // 1 to program, 0 to emulate
+#define  HV_DETECT  A0  // Is LOW if HV Programmer (version 2)
 
 // Define IO Registers
 #define  NVMCMD  0x33
@@ -37,38 +41,58 @@ unsigned char       fuse = 0x0/*[FUSE]*/;
 #define  WORD_WRITE    0x1D
 
 void setup () {
+  // Check for HV Progammer (HV_DETECT pin is LOW)
+  pinMode(HV_DETECT, INPUT_PULLUP);
+  delay(10);
+  hvMode = digitalRead(HV_DETECT) == LOW;
   // Set flashMem to unprogrammed value and then copy program code into it
   memset(flashMem, 0xFF, sizeof(flashMem));
   memcpy_P(flashMem, program, sizeof(program));
   progSize = sizeof(program);
   Serial.begin(115200);
-  pinMode(GND, OUTPUT);
-  digitalWrite(GND, LOW);      // GND Always Low
   disablePins();
-  printInstructions();
+  if (hvMode) {
+    pinMode(SHDN, OUTPUT);        // Connect SHDN
+    digitalWrite(SHDN, HIGH);     // 12v off
+    pinMode(RELAY, OUTPUT);       // Connect RELAY
+    digitalWrite(RELAY, LOW);     // Chip in Emulate mode (Relay Off)
+  } else {
+    pinMode(GND, OUTPUT);         // Connect GND
+    digitalWrite(GND, LOW);       // GND Always Low
+    printInstructions();
+  }
 }
 
 void enablePins () {
-  pinMode(VCC, OUTPUT);
-  digitalWrite(VCC, LOW);      // VCC off
-  pinMode(TPICLK, OUTPUT);
-  digitalWrite(TPICLK, HIGH);  // Clk high
-  pinMode(TPIDAT, INPUT);
-  digitalWrite(TPIDAT, HIGH);  // Enable pullup
-  pinMode(RESET, OUTPUT);
-  digitalWrite(RESET, HIGH);   // RESET Off
+  pinMode(VCC, OUTPUT);           // Connect VCC
+  digitalWrite(VCC, LOW);         // VCC off
+  pinMode(TPICLK, OUTPUT);        // Connect TPICLK
+  digitalWrite(TPICLK, HIGH);     // Clk high
+  pinMode(TPIDAT, INPUT);         // Connect TPIDAT
+  digitalWrite(TPIDAT, HIGH);     // Enable pullup
+  delay(10);
+  if (hvMode) {
+    digitalWrite(RELAY, HIGH);    // Chip in Program mode (Relay On)
+  } else {
+    pinMode(RESET, OUTPUT);       // Connect RESET
+    digitalWrite(RESET, HIGH);    // RESET Off
+  }
   delay(200);
 }
 
 void disablePins () {
-  pinMode(VCC, INPUT);
-  digitalWrite(VCC, LOW); 
-  pinMode(TPICLK, INPUT);
-  digitalWrite(TPICLK, LOW);
-  pinMode(TPIDAT, INPUT);
-  digitalWrite(TPIDAT, LOW); 
-  pinMode(RESET, INPUT);
-  digitalWrite(RESET, LOW);
+  pinMode(VCC, INPUT);          // Disconnect VCC
+  pinMode(TPICLK, INPUT);       // Disconnect TPICLK
+  pinMode(TPIDAT, INPUT);       // Disconnect TPIDAT
+  digitalWrite(VCC, LOW);       // No pull up
+  digitalWrite(TPICLK, LOW);    // No pull up
+  digitalWrite(TPIDAT, LOW);    // No pull up
+  if (hvMode) {
+    digitalWrite(RELAY, LOW);   // Chip in Emulate mode
+  } else {
+    pinMode(RESET, INPUT);      // Disconnect RESET
+    digitalWrite(RESET, LOW);   // No pull up
+  }
   delay(200);
 }
 
@@ -198,11 +222,15 @@ void nvmWait () {
 
 boolean powerOn () {
   enablePins();
-  digitalWrite(VCC, HIGH);      // VCC on
-  delay(128);                   // Wait 128 ms
-  digitalWrite(RESET, LOW);     // RESET On
-  delay(10);                    // Wait 10 ms
-  digitalWrite(TPIDAT, HIGH);   // Data high
+  digitalWrite(VCC, HIGH);        // VCC on
+  delay(128);                     // Wait 128 ms
+  if (hvMode) {
+    digitalWrite(SHDN, LOW);      // 12v On
+  } else {
+    digitalWrite(RESET, LOW);     // RESET On
+  }
+  delay(10);                      // Wait 10 ms
+  digitalWrite(TPIDAT, HIGH);     // Data high
   pinMode(TPIDAT, OUTPUT);
   for (unsigned char ii = 0; ii < 32; ii++) {
     pulseClock();
@@ -211,9 +239,13 @@ boolean powerOn () {
 }
 
 void powerOff () {
-  digitalWrite(RESET, HIGH);    // RESET Off
-  delay(128);                   // Wait 128 ms
-  digitalWrite(VCC, LOW);       // VCC off
+  if (hvMode) {
+    digitalWrite(SHDN, HIGH);     // 12v Off
+  } else {
+    digitalWrite(RESET, HIGH);    // RESET Off
+  }
+  delay(128);                     // Wait 128 ms
+  digitalWrite(VCC, LOW);         // VCC off
   disablePins();
 }
 
@@ -382,19 +414,9 @@ void writeFlash (unsigned char fuseByte) {
         writeAndInc(flashMem[ii]);      // Low byte
         writeAndInc(flashMem[ii + 1]);  // High byte
         nvmWait();
-#if DEBUG
-        if ((ii & 0x0F) == 0) {
-          Serial.println();
-        }
-        printHex(flashMem[ii]);
-        Serial.print(" ");
-        printHex(flashMem[ii + 1]);
-        Serial.print(" ");
-#else
         if ((ii & 0x0F) == 0) {
           Serial.print(".");
         }
-#endif
       }
       writeIoSpace(NVMCMD, NO_OPERATION);
       nvmWait();
@@ -561,11 +583,16 @@ void loop () {
           break;
         case 'V':
           pinMode(VCC, OUTPUT);
-          digitalWrite(VCC, HIGH);     // VCC on
+          digitalWrite(VCC, HIGH);      // VCC on
+          Serial.println("VCC on");
           break;
         case 'X':
-          digitalWrite(VCC, LOW);      // VCC off
+          digitalWrite(VCC, LOW);       // VCC off
           pinMode(VCC, INPUT);
+          Serial.println("VCC off");
+          break;
+        case '*':
+          Serial.write(0x1B);           // Respond with ESC code
           break;
       }
     }

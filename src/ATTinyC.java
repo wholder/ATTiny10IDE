@@ -18,8 +18,6 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import javax.swing.*;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.text.Document;
@@ -362,14 +360,11 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     JMenu editMenu = codePane.getEditMenu();
     editMenu.setEnabled(false);
     menuBar.add(editMenu);
-    tabPane.addChangeListener(new ChangeListener() {
-      @Override
-      public void stateChanged (ChangeEvent ev) {
-        if (tabPane.getSelectedIndex() == Tab.SRC.num) {
-          editMenu.setEnabled(true);
-        } else {
-          editMenu.setEnabled(false);
-        }
+    tabPane.addChangeListener(ev -> {
+      if (tabPane.getSelectedIndex() == Tab.SRC.num) {
+        editMenu.setEnabled(true);
+      } else {
+        editMenu.setEnabled(false);
       }
     });
     // Add "Actions" Menu
@@ -516,13 +511,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           String hex = hexPane.getText();
           String protocol = progProtocol.get(chip.toLowerCase()).prog;
           if ("TPI".equals(protocol)) {
-            if (jPort.isOpen()  ||  jPort.reopen()) {
-              selectTab(Tab.PROG);
-              progPane.append("\nSending Code for: " + cFile.getName());
-              jPort.sendString("\nD\n" + hex + "\n");
-            } else {
-              showErrorDialog("Serial port not selected!");
-            }
+            selectTab(Tab.PROG);
+            progPane.append("\nSending Code for: " + cFile.getName());
+            sendToJPort("\nD\n" + hex + "\n");
           } else {
             showErrorDialog("TPI Programming is not complatible with selected device");
           }
@@ -590,15 +581,10 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.setToolTipText("Commands TPI Programmer to Upload and Run Clock Calibration Code on Device");
     mItem.addActionListener(e -> {
       try {
-        if (jPort.isOpen()  ||  jPort.reopen()) {
-          selectTab(Tab.PROG);
-          String hex = Utility.getFile("res:clockcal.hex");
-          progPane.append("\nProgramming Clock Code");
-          jPort.sendString("\nD\n" + hex + "\n");
-          jPort.sendString("M\n");
-        } else {
-          showErrorDialog("Serial Port not selected!");
-        }
+        selectTab(Tab.PROG);
+        progPane.append("\nProgramming Clock Code");
+        String hex = Utility.getFile("res:clockcal.hex");
+        sendToJPort("\nD\n" + hex + "\nM\n");
       } catch (Exception ex) {
         showErrorDialog(ex.getMessage());
       }
@@ -607,12 +593,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.setToolTipText("Commands TPI Programmer to Read and Send Back Device's Signature");
     mItem.addActionListener(e -> {
       try {
-        if (jPort.isOpen()  ||  jPort.reopen()) {
-          selectTab(Tab.PROG);
-          jPort.sendString("S\n");
-        } else {
-          showErrorDialog("Serial Port not selected!");
-        }
+        selectTab(Tab.PROG);
+        sendToJPort("S\n");
       } catch (Exception ex) {
         showErrorDialog(ex.getMessage());
       }
@@ -621,11 +603,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.setToolTipText("Commands TPI Programmer to Switch On Power to Device");
     mItem.addActionListener(e -> {
       try {
-        if (jPort.isOpen()  ||  jPort.reopen()) {
-          jPort.sendString("V\n");
-        } else {
-          showErrorDialog("Serial Port not selected!");
-        }
+        sendToJPort("V\n");
       } catch (Exception ex) {
         showErrorDialog(ex.getMessage());
       }
@@ -634,11 +612,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.setToolTipText("Commands TPI Programmer to Switch Off Power to Device");
     mItem.addActionListener(e -> {
       try {
-        if (jPort.isOpen()  ||  jPort.reopen()) {
-          jPort.sendString("X\n");
-        } else {
-          showErrorDialog("Serial Port not selected!");
-        }
+        sendToJPort("X\n");
       } catch (Exception ex) {
         showErrorDialog(ex.getMessage());
       }
@@ -827,18 +801,14 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     JMenu tpiSettings = new JMenu("Serial Port");
     settings.add(tpiSettings);
     settings.addSeparator();
-    tpiSettings.setEnabled(false);
     Thread portThread = new Thread(() -> {
       // Add "Port" and "Baud" Menus to MenuBar
       try {
         jPort = new JSSCPort(prefs);
         tpiSettings.add(jPort.getPortMenu());
         tpiSettings.add(jPort.getBaudMenu());
-        jPort.setRXHandler(this);
       } catch (Exception ex) {
         ex.printStackTrace();
-      } finally {
-        tpiSettings.setEnabled(true);
       }
     });
     portThread.start();
@@ -906,6 +876,59 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     installToolchain(prefs.getBoolean("reload_toolchain", false));
   }
 
+  private void sendToJPort (String send) throws Exception {
+    new JPortSender(send, jPort, progPane);
+  }
+
+  private static class JPortSender implements Runnable, JSSCPort.RXEvent {
+    private String        send;
+    private JSSCPort      jPort;
+    private MyTextPane    progPane;
+    private int           timoutReset;
+    private volatile int  timeout;
+
+    JPortSender (String send, JSSCPort jPort, MyTextPane progPane) throws Exception {
+      this.send = send;
+      this.jPort = jPort;
+      this.progPane = progPane;
+      timoutReset= this.timeout = 100;   // timeout is 10 seconds
+      if (jPort.open(this)) {
+        new Thread(this).start();
+      }
+    }
+
+    public void rxChar (byte cc) {
+      if (cc == 0x1B) {
+        timeout = 0;
+        return;
+      }
+      timeout = timoutReset;
+      if (progPane != null) {
+        String tmp = Character.toString((char) cc);
+        progPane.append(tmp);
+        System.out.print(tmp);
+      }
+    }
+
+    public void run () {
+      try {
+        // Wait for bootloader to time out so it doesn't swallow command
+        Thread.sleep(3000);
+        jPort.sendString(send + '*');
+        while (timeout-- > 0) {
+          try {
+            Thread.sleep(100);
+          } catch (Exception ex) {
+            ex.printStackTrace();
+          }
+        }
+        jPort.close();
+      } catch (Exception ex) {
+        ex.printStackTrace();
+      }
+    }
+  }
+
   private int callAvrdude (String op,  Map<String, String> tags) throws Exception {
     tags.put("VBS", prefs.getBoolean("developer_features", false) ? "-v" : "");
     tags.put("PROG", ispProgrammer);
@@ -915,9 +938,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
     boolean usesPort = "arduino".equals(ispProgrammer) || "buspirate".equals(ispProgrammer);
     tags.put("OUT", usesPort ? "-P " + jPort.getPortName() + " -b 19200" : "-P usb");
-    if (usesPort) {
-      jPort.close();
-    }
     String exec = Utility.replaceTags("avrdude *[VBS]* *[OUT]* -C *[CFG]* -c *[PROG]* -p *[CHIP]* " + op, tags);
     String cmd = tmpExe + "bin" + fileSep + exec;
     System.out.println("Run: " + cmd);

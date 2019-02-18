@@ -32,7 +32,9 @@ public class JSSCPort implements SerialPortEventListener {
   private int                 eventMasks;   // See: SerialPort.MASK_RXCHAR, MASK_TXEMPTY, MASK_CTS, MASK_DSR
   private int                 flowCtrl = SerialPort.FLOWCONTROL_NONE;
   private SerialPort          serialPort;
+  private boolean             hasListener;
   private List<RXEvent>       rxHandlers = new ArrayList<>();
+  private volatile int        timeout;
 
   interface RXEvent {
     void rxChar (byte cc);
@@ -72,37 +74,51 @@ public class JSSCPort implements SerialPortEventListener {
         break;
     }
     portName = prefs.get("serial.port", null);
-    baudRate = prefs.getInt("serial.baud", 9600);
-    // Note: very slow search if there are any inactive Bluetooth connections
-    for (String name : SerialPortList.getPortNames(macPat)) {
-      if (name.equals(portName)) {
-        serialPort = new SerialPort(portName);
-        serialPort.openPort();
-        serialPort.setParams(baudRate, dataBits, stopBits, parity, false, false);  // baud, 8 bits, 1 stop bit, no parity
-        eventMasks = SerialPort.MASK_RXCHAR;
-        serialPort.setEventsMask(eventMasks);
-        serialPort.setFlowControlMode(flowCtrl);
-        serialPort.addEventListener(this, eventMasks);
-      }
-    }
+    baudRate = prefs.getInt("serial.baud", 115200);
   }
 
   public boolean isOpen () {
-    return serialPort != null;
-  }
-
-  public int getBaudRate () {
-    return baudRate;
+    if (serialPort != null) {
+      return serialPort.isOpened();
+    }
+    return false;
   }
 
   public String getPortName () {
     return portName;
   }
 
-  public void close () {
+  public boolean open (RXEvent handler) throws SerialPortException {
     if (serialPort != null) {
+      if (serialPort.isOpened()) {
+        close();
+      }
+    }
+    if (portName != null) {
+      serialPort = new SerialPort(portName);
+      serialPort.openPort();
+      serialPort.setParams(baudRate, dataBits, stopBits, parity, false, false);  // baud, 8 bits, 1 stop bit, no parity
+      serialPort.setEventsMask(eventMasks);
+      serialPort.setFlowControlMode(flowCtrl);
+      serialPort.addEventListener(JSSCPort.this);
+      setRXHandler(handler);
+      hasListener = true;
+      timeout = 50;
+      return true;
+    }
+    return false;
+  }
+
+  public void close () {
+    if (serialPort != null && serialPort.isOpened()) {
       try {
-        serialPort.removeEventListener();
+        synchronized (this) {
+          rxHandlers.clear();
+        }
+        if (hasListener) {
+          serialPort.removeEventListener();
+          hasListener = false;
+        }
         serialPort.closePort();
         serialPort = null;
       } catch (SerialPortException ex) {
@@ -111,24 +127,8 @@ public class JSSCPort implements SerialPortEventListener {
     }
   }
 
-  public boolean reopen () {
-    if (serialPort == null) {
-      serialPort = new SerialPort(portName);
-      try {
-        serialPort.openPort();
-        serialPort.setParams(baudRate, dataBits, stopBits, parity, false, false);  // baud, 8 bits, 1 stop bit, no parity
-        serialPort.setEventsMask(eventMasks);
-        serialPort.setFlowControlMode(flowCtrl);
-        serialPort.addEventListener(JSSCPort.this);
-        return true;
-      } catch (SerialPortException ex) {
-        ex.printStackTrace();
-      }
-    }
-    return false;
-  }
-
   public void serialEvent (SerialPortEvent se) {
+    timeout = 20;
     try {
       if (se.getEventType() == SerialPortEvent.RXCHAR) {
         int rxCount = se.getEventValue();
@@ -252,21 +252,8 @@ public class JSSCPort implements SerialPortEventListener {
           menu.add(item);
           group.add(item);
           item.addActionListener((ev) -> {
-            try {
-              if (serialPort != null && serialPort.isOpened()) {
-                serialPort.removeEventListener();
-                serialPort.closePort();
-              }
-              serialPort = new SerialPort(portName = pName);
-              serialPort.openPort();
-              serialPort.setParams(baudRate, dataBits, stopBits, parity, false, false);  // baud, 8 bits, 1 stop bit, no parity
-              serialPort.setEventsMask(eventMasks);
-              serialPort.setFlowControlMode(flowCtrl);
-              serialPort.addEventListener(JSSCPort.this);
-              prefs.put("serial.port", pName);
-            } catch (Exception ex) {
-              ex.printStackTrace(System.out);
-            }
+            portName = ev.getActionCommand();
+            prefs.put("serial.port", portName);
           });
         }
       }
@@ -292,13 +279,6 @@ public class JSSCPort implements SerialPortEventListener {
       item.addActionListener((ev) -> {
         String cmd = ev.getActionCommand();
         prefs.putInt("serial.baud", baudRate = Integer.parseInt(cmd));
-        if (serialPort != null && serialPort.isOpened()) {
-          try {
-            serialPort.setParams(baudRate, dataBits, stopBits, parity, false, false);  // baud, 8 bits, 1 stop bit, no parity
-          } catch (Exception ex) {
-            ex.printStackTrace(System.out);
-          }
-        }
       });
     }
     return menu;
