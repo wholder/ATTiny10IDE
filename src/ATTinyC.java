@@ -927,7 +927,10 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     public void run () {
       try {
         // Wait for bootloader to time out so it doesn't swallow command
-        while (timeout-- > 0 && setupState < 2) {
+        while (timeout > 0 && setupState < 2) {
+          synchronized (this) {
+            timeout--;
+          }
           try {
             Thread.sleep(100);
           } catch (Exception ex) {
@@ -936,7 +939,10 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         }
         timeout = timoutReset;
         jPort.sendString(send + '*');
-        while (timeout-- > 0) {
+        while (timeout > 0) {
+          synchronized (this) {
+            timeout--;
+          }
           try {
             Thread.sleep(100);
           } catch (Exception ex) {
