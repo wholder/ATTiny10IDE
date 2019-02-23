@@ -168,6 +168,7 @@ class ATTinyCompiler {
     Map<String,String> libraries = new HashMap<>();
     StringBuilder defines = new StringBuilder();
     Map<String,String> out = new HashMap<>();
+    List<String> warnings = new ArrayList<>();
     // Process #pragma and #include directives
     int lineNum = 0;
     int LastIncludeLine = 1;
@@ -215,7 +216,12 @@ class ATTinyCompiler {
           case "efuse":
             out.put("EFUSE", parts[1]);                         // Sets value of *[EFUSE]* tag in "out" Map
             break;
+          default:
+            warnings.add("Unknown pragma: " + line + " (ignored)");
+            break;
           }
+        } else {
+          warnings.add("Invalid pragma: " + line + " (ignored)");
         }
       } else if (line.startsWith("#include")) {
         LastIncludeLine = Math.max(LastIncludeLine, lineNum);
@@ -238,6 +244,9 @@ class ATTinyCompiler {
     // Build list of files we need to compile and link
     List<String> compFiles = new ArrayList<>();
     ATTinyC.ChipInfo chipInfo = ATTinyC.progProtocol.get(chip.toLowerCase());
+    if (chipInfo == null) {
+      throw new IllegalStateException("Unknown chip type: " + chip);
+    }
     if ("TPI".equals(chipInfo.prog)) {
       out.put("INFO", "chip: " + chip + ", clock: " + tags.get("CLOCK") + ", fuses: " + Utility.hexChar(fuseBits));
     } else {
@@ -450,6 +459,13 @@ class ATTinyCompiler {
     }
     out.put("HEX", buf);
     out.put("CHIP", chip);
+    if (warnings.size() > 0) {
+      StringBuilder tmp = new StringBuilder("Warnings:\n");
+      for (String warn : warnings) {
+        tmp.append("  ").append(warn).append("\n");
+      }
+      out.put("WARN", tmp.toString());
+    }
     return out;
   }
 }

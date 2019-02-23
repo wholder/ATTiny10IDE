@@ -421,7 +421,16 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
                 compiled = false;
               } else {
                 listPane.setForeground(Color.black);
-                String listing = compileMap.get("INFO") + "\n\n" + compileMap.get("SIZE") + compileMap.get("LST");
+                StringBuilder tmp = new StringBuilder();
+                tmp.append(compileMap.get("INFO"));
+                tmp.append("\n\n");
+                if (compileMap.containsKey("WARN")) {
+                  tmp.append(compileMap.get("WARN"));
+                  tmp.append("\n\n");
+                }
+                tmp.append( compileMap.get("SIZE"));
+                tmp.append(compileMap.get("LST"));
+                String listing = tmp.toString();
                 compName = compName.substring(0, compName.indexOf("."));
                 trueName = trueName.substring(0, trueName.indexOf("."));
                 listPane.setText(listing.replace(tmpDir + compName, trueName));
@@ -433,6 +442,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             } catch (Exception ex) {
               prefs.putBoolean("reload_toolchain", true);
               ex.printStackTrace();
+              listPane.setText("Compile error (see Error Info pane for details)\n" + ex.toString());
               infoPane.append("Stack Trace:\n");
               ByteArrayOutputStream bOut = new ByteArrayOutputStream();
               PrintStream pOut = new PrintStream(bOut);
@@ -512,7 +522,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           String protocol = progProtocol.get(chip.toLowerCase()).prog;
           if ("TPI".equals(protocol)) {
             selectTab(Tab.PROG);
-            progPane.append("\nSending Code for: " + cFile.getName());
+            progPane.setText("Sending Code for: " + cFile.getName() + "\n");
             sendToJPort("\nD\n" + hex + "\n");
           } else {
             showErrorDialog("TPI Programming is not complatible with selected device");
@@ -582,7 +592,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.addActionListener(e -> {
       try {
         selectTab(Tab.PROG);
-        progPane.append("\nProgramming Clock Code");
+        progPane.setText("Programming Clock Code\n");
         String hex = Utility.getFile("res:clockcal.hex");
         sendToJPort("\nD\n" + hex + "\nM\n");
       } catch (Exception ex) {
@@ -594,6 +604,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.addActionListener(e -> {
       try {
         selectTab(Tab.PROG);
+        progPane.setText("Read Device Signature\n");
         sendToJPort("S\n");
       } catch (Exception ex) {
         showErrorDialog(ex.getMessage());
@@ -603,6 +614,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.setToolTipText("Commands TPI Programmer to Switch On Power to Device");
     mItem.addActionListener(e -> {
       try {
+        progPane.setText("Enable Vcc to target\n");
         sendToJPort("V\n");
       } catch (Exception ex) {
         showErrorDialog(ex.getMessage());
@@ -612,6 +624,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.setToolTipText("Commands TPI Programmer to Switch Off Power to Device");
     mItem.addActionListener(e -> {
       try {
+        progPane.setText("Disable Vcc to target\n");
         sendToJPort("X\n");
       } catch (Exception ex) {
         showErrorDialog(ex.getMessage());
@@ -877,21 +890,19 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   }
 
   private void sendToJPort (String send) throws Exception {
-    new JPortSender(send, jPort, progPane);
+    new JPortSender(send, jPort);
   }
 
-  private static class JPortSender implements Runnable, JSSCPort.RXEvent {
+  private class JPortSender implements Runnable, JSSCPort.RXEvent {
     private String            send;
     private JSSCPort          jPort;
-    private MyTextPane        progPane;
     private int               timoutReset;
     private volatile int      timeout;
     private volatile int      setupState;
 
-    JPortSender (String send, JSSCPort jPort, MyTextPane progPane) throws Exception {
+    JPortSender (String send, JSSCPort jPort) throws Exception {
       this.send = send;
       this.jPort = jPort;
-      this.progPane = progPane;
       timoutReset= this.timeout = 100;   // timeout is 10 seconds
       if (jPort.open(this)) {
         new Thread(this).start();
