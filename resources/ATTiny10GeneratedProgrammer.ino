@@ -13,10 +13,13 @@
 
 const unsigned char program[] PROGMEM  = { /*[CODE]*/ };
 const char          progName[] = "/*[NAME]*/";
+const unsigned char progparms[]  = { /*[PARMS]*/ };
 unsigned int        progSize;
 unsigned char       flashMem[1024];
+char                inbuf[8];
 unsigned char       fuse = 0x0/*[FUSE]*/;
 boolean             hvMode = false;
+
 
 #define  BIT_TIME  1
 // Definitons for 5V Programmer
@@ -159,7 +162,7 @@ unsigned char readFrame () {
       return 0xFF;
     }
   }
-  Serial.println("Read timeout");
+  Serial.println(F("Read timeout"));
   // Timeout, or error
   return 0xFF;
 }
@@ -179,7 +182,7 @@ unsigned char enterProgMode () {
       return 1;  // enabled
     }
   }
-  Serial.println("Unable to select program mode");
+  Serial.println(F("Unable to select program mode"));
   return 0;      // timeout
 }
 
@@ -261,7 +264,7 @@ boolean printSignature () {
     if (enterProgMode()) {
       // Read device signature
       Serial.println();
-      Serial.print("Device: ");
+      Serial.print(F("Device: "));
       setPointerReg(0x3FC0);        // Device Id Bytes
       unsigned char sig[3];
       for (unsigned char ii = 0; ii < 3; ii++) {
@@ -273,15 +276,15 @@ boolean printSignature () {
       if (sig[0] == 0x1E) {
         if (sig[1] == 0x8f) {
           if (sig[2] == 0x0A) {
-            Serial.println(" - ATTiny4");
+            Serial.println(F(" - ATTiny4"));
           } else if (sig[2] == 0x09) {
-            Serial.println(" - ATTiny5");
+            Serial.println(F(" - ATTiny5"));
           }
         } else if (sig[1] == 0x90) {
           if (sig[2] == 0x08) {
-            Serial.println(" - ATTiny9");
+            Serial.println(F(" - ATTiny9"));
           } else if (sig[2] == 0x03) {
-            Serial.println(" - ATTiny10");
+            Serial.println(F(" - ATTiny10"));
           }
         }
       }
@@ -305,11 +308,11 @@ void measureClock () {
   long lowest = 1000000;
   // Verify TPIDAT signal is changing before measuring time interval
   unsigned long timeout = millis();
-  Serial.print("Measuring Clock.");
+  Serial.print(F("Measuring Clock."));
   do {
     // Must see TPIDAT change within 2 seconds, or timeout
     if ((millis() - timeout) > 2000) {
-      Serial.println("Timeout");
+      Serial.println(F("Timeout"));
       powerOff();
       return;
     }
@@ -341,7 +344,7 @@ void measureClock () {
     }
     mid = (hi + lo) / 2;
   } while (abs(hi - lo) > 1);
-  Serial.print("\nRecommended Clock Offset: 0x");
+  Serial.print(F("\nRecommended Clock Offset: 0x"));
   Serial.println(mid, HEX);
   digitalWrite(VCC, LOW);       // VCC off
   disablePins();
@@ -366,7 +369,7 @@ void printFuses () {
   if (powerOn()) {
     if (enterProgMode()) {
       // Read device signature
-      Serial.print("Fuses:  ");
+      Serial.print(F("Fuses:  "));
       setPointerReg(0x3F40);        // Configuration Byte
       printHex(readAndInc());
       Serial.println();
@@ -375,18 +378,10 @@ void printFuses () {
   powerOff();
 }
 
-void printHex (unsigned char val) {
-  Serial.print("0x");
-  if (val < 16) {
-    Serial.print("0");
-  }
-  Serial.print(val, HEX);
-}
-
 void writeFlash (unsigned char fuseByte) {
   if (powerOn()) {
     if (enterProgMode()) {
-      Serial.print("\nProgramming");
+      Serial.print(F("\nProgramming"));
       // Erase all flash bytes
       writeIoSpace(NVMCMD, CHIP_ERASE);
       setPointerReg(0x4001);
@@ -421,9 +416,9 @@ void writeFlash (unsigned char fuseByte) {
       }
       writeIoSpace(NVMCMD, NO_OPERATION);
       nvmWait();
-      Serial.print("Done - ");
+      Serial.print(F("Done - "));
       Serial.print(progSize, DEC);
-      Serial.println(" bytes written");
+      Serial.println(F(" bytes written"));
     }
   }
   powerOff();
@@ -532,7 +527,7 @@ void download () {
     } else {
       // Check for 2 second timeout;
       if ((millis() - timeout) > 2000) {
-        Serial.println(".Timeout");
+        Serial.println(F(".Timeout"));
         return;
       }
     }
@@ -543,17 +538,56 @@ void printInstructions () {
   int ardPins[] = {2, 3, 4, 5, 6};
   int tnyPins[] = {5, 3, 1, 6, 2};
   if (sizeof(program) > 0) {
-    Serial.print("Programmer for: ");
+    Serial.print(F("Programmer for: "));
     Serial.println(progName);
   }
-  Serial.println("Connect:");
+  Serial.println(F("Connect:"));
   for (int ii = 0; ii < 5; ii++) {
-    Serial.print("  Arduino pin D");
+    Serial.print(F("  Arduino pin D"));
     Serial.print(ardPins[ii], DEC);
-    Serial.print(" to ATtiny10 pin ");
+    Serial.print(F(" to ATtiny10 pin "));
     Serial.println(tnyPins[ii]);
   }
-  Serial.println("Commands:\n  P - Program ATtiny10\n  I - Identify ATtiny10");
+  Serial.println(F("Commands:\n  P - Program ATtiny10\n  I - Identify ATtiny10"));
+  if (sizeof(progparms) > 0) {
+    Serial.println(F("  C - Change Parameters"));
+  }
+}
+
+// Get '\n'-terminated string and return length
+unsigned char getString () {
+  unsigned char idx = 0;
+  while (true) {
+    if (Serial.available()) {
+      char cc = toupper(Serial.read());
+      if (cc == '\r') {
+        // Ignore
+      } else if (cc == '\n') {
+        inbuf[idx] = 0;
+        return idx;
+      } else {
+        inbuf[idx++] = cc;
+      }
+    }
+  }
+}
+
+void printHex (unsigned char val) {
+  Serial.print("0x");
+  if (val < 16) {
+    Serial.print("0");
+  }
+  Serial.print(val, HEX);
+}
+
+unsigned int readDecimal () {
+  unsigned int val = 0;
+  unsigned char off = 0;
+  char cc;
+  while ((cc = inbuf[off++]) != 0 && cc >= '0' && cc <= '9') {
+    val = (val * 10) + (byte) (cc - '0');
+  }
+  return val;
 }
 
 void loop () {
@@ -564,6 +598,61 @@ void loop () {
         case 'I':
           // Identify connected ATtiny device
           printSignature();
+          break;
+        case 'C':
+          // Change exported parameters
+          if (sizeof(progparms) > 0) {
+            delay(200);
+            while (Serial.available()) {
+              Serial.read();
+            }
+            Serial.println(F("\nType <new> + enter to change, else enter:"));
+            byte ii = 0;
+            byte state = 0;
+            unsigned int add;
+            unsigned char cc;
+            unsigned int val;
+            while (ii < sizeof(progparms)) {
+              switch (state) {
+                case 0:
+                  cc = progparms[ii++];
+                  if (cc == 0) {
+                    state++;
+                  } else {
+                    Serial.write(cc);
+                  }
+                  break;
+                case 1:
+                  byte size = progparms[ii++];
+                  add = (unsigned int) progparms[ii++] << 8;
+                  add |= progparms[ii++];
+                  Serial.print(" = ");
+                  if (size == 2) {
+                    val = flashMem[add + 1] << 8 + flashMem[add];
+                  } else if (size == 1) {
+                    val =  flashMem[add];
+                  }
+                  Serial.print(val, DEC);
+                  Serial.print(" ?");
+                  if (getString() > 0) {
+                    val = readDecimal();
+                    Serial.print(F(" Changed to "));
+                    Serial.println(val, DEC);
+                    if (size == 2) {
+                      flashMem[add] = val & 0xFF;
+                      flashMem[add + 1] = val >> 8;
+                    } else if (size == 1) {
+                      flashMem[add] = val;
+                    }
+                  } else {
+                    Serial.println(F(" Unchanged"));
+                  }
+                  state = 0;
+                  break;
+              }
+            }
+            Serial.println(F("Done"));
+          }
           break;
         case 'P':
           // Program ATtiny
@@ -585,12 +674,12 @@ void loop () {
         case 'V':
           pinMode(VCC, OUTPUT);
           digitalWrite(VCC, HIGH);      // VCC on
-          Serial.println("VCC on");
+          Serial.println(F("VCC on"));
           break;
         case 'X':
           digitalWrite(VCC, LOW);       // VCC off
           pinMode(VCC, INPUT);
-          Serial.println("VCC off");
+          Serial.println(F("VCC off"));
           break;
         case '*':
           Serial.write(0x1B);           // Respond with ESC code

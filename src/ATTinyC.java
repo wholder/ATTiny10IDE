@@ -53,7 +53,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private CodeEditPane              codePane;
   private MyTextPane                listPane, hexPane, progPane, infoPane;
   private JMenuItem                 saveMenu;
-  private String                    tmpDir, tmpExe, chip, editFile;
+  private String                    tmpDir, tmpExe, chip, editFile, exportParms;
   private boolean                   directHex, compiled, codeDirty;
   private File                      cFile;
   private transient Preferences     prefs = Preferences.userRoot().node(this.getClass().getName());
@@ -246,7 +246,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         int line = Integer.parseInt(tmp[0]);
         int column = Integer.parseInt(tmp[1]);
         codePane.setPosition(line, column);
-        System.out.println(ev.getDescription());
+        //System.out.println(ev.getDescription());
       }
     });
     hexPane =  new MyTextPane(tabPane, "Hex Output", "Intel Hex Output file for programmer");
@@ -428,6 +428,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
                   tmp.append(compileMap.get("WARN"));
                   tmp.append("\n\n");
                 }
+                exportParms = compileMap.get("XPARMS");
                 tmp.append( compileMap.get("SIZE"));
                 tmp.append(compileMap.get("LST"));
                 String listing = tmp.toString();
@@ -540,7 +541,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         switch (protocol) {
         case "TPI":
           try {
-            String genCode = Utility.getFile("res:ATTiny10GeneratedProgrammer.ino");
+            // Convert Intel Hex into byte array elements
             String hex = hexPane.getText();
             CodeImage image = parseIntelHex(hex);
             byte[] code = image.data;
@@ -558,8 +559,41 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
               buf.append(Utility.hexChar(code[ii]));
             }
             char fuseCode = Utility.hexChar(image.fuses);
+            String genCode = Utility.getFile("res:ATTiny10GeneratedProgrammer.ino");
             String outCode = genCode.replace("/*[CODE]*/", buf.toString()).replace("/*[FUSE]*/", Character.toString(fuseCode));
             outCode = outCode.replace("/*[NAME]*/", cFile.getName());
+            // Handle exported parameters, if any are declared using "#pragma xparm"
+            StringBuilder parms = new StringBuilder();
+            if (exportParms != null && exportParms.length() > 0) {
+              parms.append("\n  ");
+              StringTokenizer tok = new StringTokenizer(exportParms, "\n");
+              while (tok.hasMoreElements()) {
+                String line = tok.nextToken();
+                String[] parts = line.split(":");
+                if (parts.length == 3) {
+                  String name = parts[0];
+                  for (int ii = 0; ii < name.length(); ii++) {
+                    parms.append("'");
+                    parms.append(name.charAt(ii));
+                    parms.append("',");
+                  }
+                  parms.append("0,");
+                  parms.append(parts[2]);
+                  parms.append(",0x");
+                  int add = Integer.parseInt(parts[1], 16);
+                  parms.append(Utility.hexChar((byte) (add >> 12)));
+                  parms.append(Utility.hexChar((byte) (add >> 8)));
+                  parms.append(",0x");
+                  parms.append(Utility.hexChar((byte) (add >> 4)));
+                  parms.append(Utility.hexChar((byte) (add & 0x0F)));
+                  if (tok.hasMoreElements()) {
+                    parms.append(",\n  ");
+                  }
+                }
+              }
+              parms.append("\n");
+            }
+            outCode = outCode.replace("/*[PARMS]*/", parms.toString());
             String genFile = cFile.getAbsolutePath();
             int dot = genFile.lastIndexOf(".");
             if (dot > 0) {
@@ -850,7 +884,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         }
         item.addActionListener(ex -> {
           prefs.put("icsp_programmer", ispProgrammer = key);
-          System.out.println(key);
+          //System.out.println(key);
         });
       }
     } catch (Exception ex) {

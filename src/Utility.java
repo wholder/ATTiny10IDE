@@ -35,7 +35,7 @@ class Utility {
    * @param text Input text
    * @return Reformatted output
    */
-  private static String condenseWhitespace (String text) {
+  static String condenseWhitespace (String text) {
     StringTokenizer tok = new StringTokenizer(text);
     StringBuilder buf = new StringBuilder();
     while (tok.hasMoreTokens()) {
@@ -44,6 +44,14 @@ class Utility {
       buf.append(' ');
     }
     return buf.toString().trim();
+  }
+
+  static String pad (String val, int len) {
+    StringBuilder buf = new StringBuilder(val);
+    while (buf.length() < len) {
+      buf.append(" ");
+    }
+    return buf.toString();
   }
 
   static void saveFile (File file, String text) {
