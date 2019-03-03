@@ -137,7 +137,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
 
   static {
     // List of ATtiny types, Protocol used to Program them, etc.
-    //       Part Name             Protocol   Library   Fuse(s)         Signature  UseCore
+    //       Part Name              Protocol  Library   Part   Fuse(s)          Signature  UseCore
     addChip("attiny4",  new ChipInfo("TPI",  "tiny10",  "t4", "FF",             "1E8F0A", false));
     addChip("attiny5",  new ChipInfo("TPI",  "tiny10",  "t5", "FF",             "1E8F09", false));
     addChip("attiny9",  new ChipInfo("TPI",  "tiny10",  "t9", "FF",             "1E9008", false));
@@ -1005,7 +1005,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     tags.put("VBS", prefs.getBoolean("developer_features", false) ? "-v" : "");
     tags.put("PROG", ispProgrammer);
     tags.put("TDIR", tmpDir);
-    ChipInfo chipInfo = progProtocol.get(chip.toLowerCase());
+    ChipInfo chipInfo = progProtocol.get(chip != null ? chip.toLowerCase() : chip);
     tags.put("CHIP", chipInfo != null ? chipInfo.part : "t85");
     tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
     boolean usesPort = "arduino".equals(ispProgrammer) || "buspirate".equals(ispProgrammer);

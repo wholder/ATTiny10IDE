@@ -1,8 +1,8 @@
 #include <avr/io.h>
 
 /*
- * ATtiny10 TPI Generated Programmer for IDE and non High Voltage Programmer
- * IMPORTANT: Not Compatible with original Emulator/Programmer board
+ * ATtiny10 TPI Generated Programmer for ATTiny10IDE.  Supports both 5V and 12V Programmers
+ * IMPORTANT: Original, Relay-based Emulator/Programmer board needs mod (A0 tied to ground)
  */
  
 //                 +-\/-+
@@ -18,8 +18,8 @@ unsigned int        progSize;
 unsigned char       flashMem[1024];
 char                inbuf[8];
 unsigned char       fuse = 0x0/*[FUSE]*/;
-boolean             hvMode = false;
-
+boolean             hv1Mode = false;
+boolean             hv2Mode = false;
 
 #define  BIT_TIME  1
 // Definitons for 5V Programmer
@@ -31,7 +31,9 @@ boolean             hvMode = false;
 // Definitons for 12V Programmer (just different names for pins)
 #define  SHDN       5   // 0 to turn on 12V, 1 to disable
 #define  RELAY      6   // 1 to program, 0 to emulate
-#define  HV_DETECT  A0  // Is LOW if HV Programmer (version 2)
+// Definitions for pins used to detect HV programmers
+#define  HV1_DETECT A0  // Is LOW if HV Programmer (version 1, 2x DPDT relays)
+#define  HV2_DETECT A1  // Is LOW if HV Programmer (version 2, 4 ch analog switch)
 
 // Define IO Registers
 #define  NVMCMD  0x33
@@ -44,19 +46,25 @@ boolean             hvMode = false;
 #define  WORD_WRITE    0x1D
 
 void setup () {
-  // Check for HV Progammer (HV_DETECT pin is LOW)
-  pinMode(HV_DETECT, INPUT_PULLUP);
+  // Check for HV Progammerw (HV1_DETECT or HV2_DETECT pin is LOW)
+  pinMode(HV1_DETECT, INPUT_PULLUP);
+  pinMode(HV1_DETECT, INPUT_PULLUP);
   delay(10);
-  hvMode = digitalRead(HV_DETECT) == LOW;
+  hv1Mode = digitalRead(HV1_DETECT) == LOW;
+  hv2Mode = digitalRead(HV2_DETECT) == LOW;
   // Set flashMem to unprogrammed value and then copy program code into it
   memset(flashMem, 0xFF, sizeof(flashMem));
   memcpy_P(flashMem, program, sizeof(program));
   progSize = sizeof(program);
   Serial.begin(115200);
   disablePins();
-  if (hvMode) {
+  if (hv1Mode || hv2Mode) {
     pinMode(SHDN, OUTPUT);        // Connect SHDN
-    digitalWrite(SHDN, HIGH);     // 12v off
+    if (hv1Mode) {
+        digitalWrite(SHDN, HIGH); // 12v off
+    } else {
+        digitalWrite(SHDN, LOW);  // 12v off
+    }
     pinMode(RELAY, OUTPUT);       // Connect RELAY
     digitalWrite(RELAY, LOW);     // Chip in Emulate mode (Relay Off)
     Serial.print("\x06\x06");     // Send ACK ACK sequence tp signal ready
@@ -75,7 +83,7 @@ void enablePins () {
   pinMode(TPIDAT, INPUT);         // Connect TPIDAT
   digitalWrite(TPIDAT, HIGH);     // Enable pullup
   delay(10);
-  if (hvMode) {
+  if (hv1Mode || hv2Mode) {
     digitalWrite(RELAY, HIGH);    // Chip in Program mode (Relay On)
   } else {
     pinMode(RESET, OUTPUT);       // Connect RESET
@@ -91,7 +99,7 @@ void disablePins () {
   digitalWrite(VCC, LOW);       // No pull up
   digitalWrite(TPICLK, LOW);    // No pull up
   digitalWrite(TPIDAT, LOW);    // No pull up
-  if (hvMode) {
+  if (hv1Mode || hv2Mode) {
     digitalWrite(RELAY, LOW);   // Chip in Emulate mode
   } else {
     pinMode(RESET, INPUT);      // Disconnect RESET
@@ -228,8 +236,10 @@ boolean powerOn () {
   enablePins();
   digitalWrite(VCC, HIGH);        // VCC on
   delay(128);                     // Wait 128 ms
-  if (hvMode) {
+  if (hv1Mode) {
     digitalWrite(SHDN, LOW);      // 12v On
+  } else if (hv2Mode) {
+    digitalWrite(SHDN, HIGH);     // 12v On
   } else {
     digitalWrite(RESET, LOW);     // RESET On
   }
@@ -243,8 +253,10 @@ boolean powerOn () {
 }
 
 void powerOff () {
-  if (hvMode) {
+  if (hv1Mode) {
     digitalWrite(SHDN, HIGH);     // 12v Off
+  } else if (hv2Mode) {
+    digitalWrite(SHDN, LOW);      // 12v Off
   } else {
     digitalWrite(RESET, HIGH);    // RESET Off
   }
