@@ -222,6 +222,19 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
 
   private ATTinyC () {
     super("ATTinyC");
+    // Setup temp directory for code compilation
+    File base = (new File(tempBase + "avr-temp-code"));
+    if (!base.exists()) {
+      base.mkdirs();
+    }
+    tmpDir = base.getAbsolutePath() + fileSep;
+    // Setup temp directory for AVR Toolchain
+    base = (new File(tempBase + "avr-toolchain"));
+    if (!base.exists()) {
+      base.mkdirs();
+    }
+    tmpExe = base.getAbsolutePath() + fileSep;
+    // Setup interface
     setBackground(Color.white);
     setLayout(new BorderLayout(1, 1));
     // Create Tabbed Pane
@@ -385,7 +398,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           compiled = true;
         } else {
           // Reinstall toolchain if there was an error last time we tried to build
-          installToolchain(prefs.getBoolean("reload_toolchain", false));
+          verifyToolchain();
           Thread cThread = new Thread(() -> {
             try {
               listPane.setForeground(Color.black);
@@ -468,7 +481,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         String fName = cFile.getName().toLowerCase();
         if (fName.endsWith(".cpp") || fName.endsWith(".c")) {
           // Reinstall toolchain if there was an error last time we tried to build
-          installToolchain(prefs.getBoolean("reload_toolchain", false));
+          verifyToolchain();
           Thread cThread = new Thread(() -> {
             try {
               listPane.setForeground(Color.black);
@@ -834,7 +847,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     actions.addSeparator();
     actions.add(mItem = new JMenuItem("Reinstall Toolchain"));
     mItem.setToolTipText("Copies AVR Toolchain into Java Temporary Disk Space where it can be Executed");
-    mItem.addActionListener(e -> installToolchain(true));
+    mItem.addActionListener(e -> reloadToolchain());
     menuBar.add(actions);
     // Add Settings menu
     JMenu settings = new JMenu("Settings");
@@ -920,7 +933,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       }
     });
     setVisible(true);
-    installToolchain(prefs.getBoolean("reload_toolchain", false));
+    verifyToolchain();
   }
 
   private void sendToJPort (String send) throws Exception {
@@ -1005,7 +1018,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     tags.put("VBS", prefs.getBoolean("developer_features", false) ? "-v" : "");
     tags.put("PROG", ispProgrammer);
     tags.put("TDIR", tmpDir);
-    ChipInfo chipInfo = progProtocol.get(chip != null ? chip.toLowerCase() : chip);
+    ChipInfo chipInfo = progProtocol.get(chip != null ? chip.toLowerCase() : null);
     tags.put("CHIP", chipInfo != null ? chipInfo.part : "t85");
     tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
     boolean usesPort = "arduino".equals(ispProgrammer) || "buspirate".equals(ispProgrammer);
@@ -1073,30 +1086,45 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     }
   }
 
-  private void installToolchain (boolean reinstall) {
-    // Create temporary scratch directory for compiler
-    File tmp = (new File(tempBase + "avr-temp-code"));
-    if (!tmp.exists()) {
-      tmp.mkdirs();
+  private void verifyToolchain () {
+    boolean reloadTools = prefs.getBoolean("reload_toolchain", false);
+    if (!reloadTools) {
+      long oldCrc = prefs.getLong("toolchain-crc", 0);
+      long newCrc = Utility.crcTree(tmpExe);
+      reloadTools = newCrc != oldCrc;
     }
+    if (!reloadTools) {
+      // Check for new toolchain
+      String zipFile = null;
+      if (os == OpSys.WIN) {
+        zipFile = "toolchains/WinToolchain.zip";
+      } else if (os == OpSys.MAC) {
+        zipFile = "toolchains/MacToolchain.zip";
+      } else if (os == OpSys.LINUX) {
+        zipFile = "toolchains/L64Toolchain.zip";
+      }
+      long oldCrc = prefs.getLong("toolzip-crc", 0);
+      long newCrc = Utility.crcZipfile(zipFile);
+      reloadTools = newCrc != oldCrc;
+      prefs.putLong("toolzip-crc", newCrc);
+    }
+
+    if (reloadTools) {
+      reloadToolchain();
+    }
+  }
+
+  private void reloadToolchain () {
     try {
-      tmpDir = tmp.getAbsolutePath() + fileSep;
-      // Install AVR Toolchain if it's not already installed
-      tmp = (new File(tempBase + "avr-toolchain"));
-      if (reinstall || !tmp.exists()) {
-        tmp.mkdirs();
-        tmpExe = tmp.getAbsolutePath() + fileSep;
-        if (os == OpSys.WIN) {
-          new ToolchainLoader(this, "toolchains/WinToolchain.zip", tmpExe);
-        } else if (os == OpSys.MAC) {
-          new ToolchainLoader(this, "toolchains/MacToolchain.zip", tmpExe);
-        } else if (os == OpSys.LINUX) {
-          new ToolchainLoader(this, "toolchains/L64Toolchain.zip", tmpExe);
-        }
-      } else {
-        tmpExe = tmp.getAbsolutePath() + fileSep;
+      if (os == OpSys.WIN) {
+        new ToolchainLoader(this, "toolchains/WinToolchain.zip", tmpExe);
+      } else if (os == OpSys.MAC) {
+        new ToolchainLoader(this, "toolchains/MacToolchain.zip", tmpExe);
+      } else if (os == OpSys.LINUX) {
+        new ToolchainLoader(this, "toolchains/L64Toolchain.zip", tmpExe);
       }
       prefs.remove("reload_toolchain");
+      prefs.putLong("toolchain-crc", Utility.crcTree(tmpExe));
     } catch (Exception ex) {
       ex.printStackTrace();
       selectTab(Tab.LIST);

@@ -1,11 +1,17 @@
+import sun.nio.cs.UTF_32;
+
 import java.io.*;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.zip.CRC32;
 
 class Utility {
   private static final String   StartMarker = "//:Begin Embedded Markdown Data (do not edit)";
@@ -215,6 +221,59 @@ class Utility {
       return new String[] {src};
     }
   }
+
+  /**
+   * Adds path + filename to CRC32 crc
+   * @param path
+   * @param crc
+   */
+  private static void crcFilename (Path path, CRC32 crc) {
+    String file = path.getFileName().toString();
+    if (!".DS_Store".equals(file)) {
+      String val = path.toString();
+      crc.update(val.getBytes(StandardCharsets.UTF_8));
+    }
+  }
+
+  /**
+   * Computes crc for tree of filenames and paths
+   * @param base base of file tree
+   */
+  static long crcTree (String base) {
+    CRC32 crc = new CRC32();
+    try {
+      Files.walk(Paths.get(base))
+          .filter(path -> !Files.isDirectory(path))
+          .forEach((path) -> crcFilename(path, crc));
+    } catch (Exception ex) {
+      return 0;
+    }
+    return crc.getValue();
+  }
+
+  static long crcZipfile (String srcZip) {
+    CRC32 crc = new CRC32();
+    try {
+      InputStream in = util.getClass().getResourceAsStream(srcZip);
+      int size = in.available();
+      byte[] data = new byte[size];
+      in.read(data);
+      crc.update(data);
+    } catch (Exception ex) {
+      return 0;
+    }
+    return crc.getValue();
+  }
+
+  /*
+  public static void main (String[] args) {
+    long start = System.currentTimeMillis();
+    long checksum = crcZipfile("toolchains/MacToolchain.zip");
+    long end = System.currentTimeMillis();
+    long elapsed = end - start;
+    int sum = 0;
+  }
+  */
 
   static int fromHex (char cc) {
     cc = Character.toUpperCase(cc);
