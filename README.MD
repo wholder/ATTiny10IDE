@@ -1,3 +1,5 @@
+
+#Sorry: the currently checked in build does not run due to a serious regression error.  Please standby while we fix this problem.
 <p align="center"><img src="/images/ATTiny10IDE%20Screenshot.png"></p>
 
 # ATTiny10IDE (for 64 bit macOS, Windows & Linux)
