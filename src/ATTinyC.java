@@ -1000,9 +1000,11 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       targetGroup.add(item);
       item.addActionListener( ex -> {
         avrChip = type;
+        targetMenu.setText("Target->" + avrChip);
       });
     }
     avrChip = "attiny10";
+    targetMenu.setText("Target->" + avrChip);
     setJMenuBar(menuBar);
     // Add window close handler
     addWindowListener(new WindowAdapter() {
@@ -1051,6 +1053,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           if (progProtocol.containsKey(parts[1])) {
             avrChip = parts[1];
             targetMenu.setSelected(avrChip);
+            targetMenu.setText("Target->" + avrChip);
             targetMenu.setEnabled(false);
             return;
           }
@@ -1060,6 +1063,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     // If "#pragma chip" not found, or value is invalid set avrChip to selected item in "Target" menu, if any
     targetMenu.setEnabled(true);
     avrChip = targetMenu.getSelected();
+    targetMenu.setText("Target->" + avrChip);
   }
 
   private String queryJPort (String send) throws Exception {
