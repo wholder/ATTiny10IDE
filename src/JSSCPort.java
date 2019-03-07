@@ -25,7 +25,7 @@ import javax.swing.event.MenuListener;
 public class JSSCPort implements SerialPortEventListener {
   private static final Map<String,Integer> baudRates = new LinkedHashMap<>();
   private ArrayBlockingQueue<Integer>  queue = new ArrayBlockingQueue<>(1000);
-  static Pattern              macPat = Pattern.compile("cu.");
+  private static Pattern      macPat = Pattern.compile("cu.");
   private Preferences         prefs;
   private String              portName;
   private int                 baudRate, dataBits = 8, stopBits = 1, parity = 0;
@@ -34,7 +34,6 @@ public class JSSCPort implements SerialPortEventListener {
   private SerialPort          serialPort;
   private boolean             hasListener;
   private List<RXEvent>       rxHandlers = new ArrayList<>();
-  private volatile int        timeout;
 
   interface RXEvent {
     void rxChar (byte cc);
@@ -103,7 +102,6 @@ public class JSSCPort implements SerialPortEventListener {
       serialPort.addEventListener(JSSCPort.this);
       setRXHandler(handler);
       hasListener = true;
-      timeout = 50;
       return true;
     }
     return false;
@@ -128,7 +126,6 @@ public class JSSCPort implements SerialPortEventListener {
   }
 
   public void serialEvent (SerialPortEvent se) {
-    timeout = 20;
     try {
       if (se.getEventType() == SerialPortEvent.RXCHAR) {
         int rxCount = se.getEventValue();

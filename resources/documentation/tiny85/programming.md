@@ -29,7 +29,7 @@ You can use the AVRISP mkII to upload and program your code, like this:
  3. Select "**`Actions->Build`**" to compile. or assemble the code.
  4. Connect the Arduino to the ATTiny85 using the connections shown above.
  5. If you've changed the fuse setting from the default settings using the **`#pragma`** **`lfuse`**, **`hfuse`** and/or **`efuse`** directives select "**`Actions->ISP Programmer->Program Fuses`**" to write the new fuse settings to the ATTiny85.  Note: fuse settings are not altered when you upload new program code, so you only need to use this command when you need to set new fuse values. 
- 6. Select "**`Actions->ISP Programmer->Program Device`**" to upload and program the code into the ATtiny85.
+ 6. Select "**`Actions->Program Flash and Fuse(s)`**" to upload and program the code into the ATtiny85.
 
 ### Arduino as ISP
 
@@ -49,5 +49,5 @@ You can use the ArduinoiISP Sketch as a general-purpose ATTiny85 programmer to u
  4. Select "**`Actions->Build`**" to compile. or assemble the code.
  5. Connect the Arduino to the ATTiny85 using the connections shown above.
  6. If you've changed the fuse setting from the default settings using the **`#pragma`** **`lfuse`**, **`hfuse`** and/or **`efuse`** directives select "**`Actions->ISP Programmer->Program Fuses`**" to write the new fuse settings to the ATTiny85.  Note: fuse settings are not altered when you upload new program code, so you only need to use this command when you need to set new fuse values. 
- 7. Select "**`Actions->ISP Programmer->Program Device`**" to upload and program the code into the ATtiny85.
+ 7. Select "**`Actions->Program Flash and Fuse(s)`**" to upload and program the code into the ATtiny85.
 

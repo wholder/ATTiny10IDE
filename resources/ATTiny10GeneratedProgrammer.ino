@@ -377,11 +377,11 @@ void setClockTweak (unsigned char val) {
   }
 }
 
-void printFuses () {
+void printFuse () {
   if (powerOn()) {
     if (enterProgMode()) {
       // Read device signature
-      Serial.print(F("Fuses:  "));
+      Serial.print(F("Fuse:  "));
       setPointerReg(0x3F40);        // Configuration Byte
       printHex(readAndInc());
       Serial.println();
@@ -393,7 +393,7 @@ void printFuses () {
 void writeFlash (unsigned char fuseByte) {
   if (powerOn()) {
     if (enterProgMode()) {
-      Serial.print(F("\nProgramming"));
+      Serial.print(F("\nProgramming Flash and Fuse"));
       // Erase all flash bytes
       writeIoSpace(NVMCMD, CHIP_ERASE);
       setPointerReg(0x4001);
@@ -431,6 +431,34 @@ void writeFlash (unsigned char fuseByte) {
       Serial.print(F("Done - "));
       Serial.print(progSize, DEC);
       Serial.println(F(" bytes written"));
+      Serial.print(F("Fuse byte set to: "));
+      printHex(fuseByte);
+      Serial.println();
+    }
+  }
+  powerOff();
+}
+
+void writeFuse (unsigned char fuseByte) {
+  if (powerOn()) {
+    if (enterProgMode()) {
+      // Erase Config Section
+      writeIoSpace(NVMCMD, SECTION_ERASE);
+      setPointerReg(0x3F41);
+      writeAndInc(0x00);    // Write dummy high byte
+      nvmWait();
+      writeIoSpace(NVMCMD, NO_OPERATION);
+      nvmWait();
+      // Write config byte (Note: bits are inverted, so '0' value is ON)
+      writeIoSpace(NVMCMD,WORD_WRITE);
+      setPointerReg(0x3F40);
+      writeAndInc(fuseByte | 0xF8);    // Config Byte
+      writeAndInc(0xFF);
+      writeIoSpace(NVMCMD, NO_OPERATION);
+      nvmWait();
+      Serial.print(F("Fuse byte set to: "));
+      printHex(fuseByte);
+      Serial.println();
     }
   }
   powerOff();
@@ -519,7 +547,11 @@ void download () {
               Serial.print(".");
               break;
             case 1:                       // EOF Record
-              writeFlash(fuse);
+              if (progSize > 0) {
+                writeFlash(fuse);
+              } else {
+                writeFuse(fuse);
+              }
              return;
             case 2:                       // Start of Record (actually extended segment address record)
               // Set buffer space and fuse byte to unprogrammed flash value (0xFF)
@@ -681,7 +713,9 @@ void loop () {
           break;
         case 'S':
           printSignature();
-          printFuses();
+          break;
+        case 'F':
+          printFuse();
           break;
         case 'V':
           pinMode(VCC, OUTPUT);

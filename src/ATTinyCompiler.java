@@ -17,14 +17,14 @@ import java.util.regex.Pattern;
    */
 
 class ATTinyCompiler {
-  private static final Pattern  libMatch = Pattern.compile("#include\\s+<([a-zA-Z.]+)>");
-  private static final String   fileSep =  System.getProperty("file.separator");
+  private static final String fileSep = System.getProperty("file.separator");
 
   private static final String prePro =  "avr-g++ " +                  // https://linux.die.net/man/1/avr-g++
                                         "-w " +                       // Inhibit all warning messages
                                         "-x c++ " +                   // Assume c++ file
                                         "-E " +                       // Preprocess only
                                         "-MMD " +                     // Generate dependencies to Sketch.inc
+                                        "-I *[TDIR]* " +              // Also search in temp directory for header files
                                         "-MF *[TDIR]*Sketch.inc " +   //   " "
                                         "-DF_CPU=*[CLOCK]* " +        // Create #define for F_CPU
                                         "-mmcu=*[CHIP]* " +           // Select CHIP microcontroller type
@@ -46,7 +46,6 @@ class ATTinyCompiler {
                                         "-DLTO_ENABLED " +
                                         "-DF_CPU=*[CLOCK]* " +        // Create #define for F_CPU
                                         "-mmcu=*[CHIP]* " +           // Select CHIP microcontroller type
-
                                         "-DARDUINO_ARCH_AVR " +       // #define ARDUINO_ARCH_AVR
                                         "*[DEFINES]* " +              // Add in conditional #defines, if any
                                         "-MMD " +                     // Mention only user header files
@@ -54,7 +53,7 @@ class ATTinyCompiler {
                                         "*[TDIR]**[IFILE]* " +        // Source file is temp/IFILE.x
                                         "-o *[TDIR]**[IFILE]*.o ";    // Output to file temp/IFILE.x.o
 
-    private static final String compC = "avr-gcc " +                  // https://linux.die.net/man/1/avr-gcc
+  private static final String compC = "avr-gcc " +                    // https://linux.die.net/man/1/avr-gcc
                                         "-c " +                       // Compile but do not link
                                         "-g " +                       // Enable link-time optimization
                                         "-Os " +                      // Optimize for size
@@ -68,7 +67,7 @@ class ATTinyCompiler {
                                         "-mmcu=*[CHIP]* " +           // Select CHIP microcontroller type
                                         "-DARDUINO_ARCH_AVR " +       // #define ARDUINO_ARCH_AVR
                                         "*[DEFINES]* " +              // Add in conditional #defines, if any
-                                        "-MMD " +                     //
+                                        "-MMD " +                      // Mention only user header files
                                         "-fno-fat-lto-objects " +     //
                                         "-I *[TDIR]* " +              // Also search in temp directory for header files
                                         "*[TDIR]**[IFILE]* " +        // Source file is temp/IFILE.x
@@ -120,21 +119,21 @@ class ATTinyCompiler {
   private static final String size = "avr-size " +                    // https://linux.die.net/man/1/avr-size
                                         "--format=avr " +             // Architecture is AVR
                                         "--mcu=*[CHIP]* " +           // Select CHIP microcontroller type
-                                       "*[TDIR]*Sketch.elf";          // Input file
+                                        "*[TDIR]*Sketch.elf";          // Input file
 
   private static String[][] asm = {
-    {"COMP1", "avr-as -mmcu=*[CHIP]* -I *[IDIR]* *[TDIR]*Sketch.S -o *[TDIR]*Sketch.o "},
-    {"COMP2", "avr-ld -mavrtiny *[TDIR]*Sketch.o -o *[TDIR]*Sketch.elf "},
-    {"TOHEX", tohex},
-    {"LST",   list},
-    {"SIZE",  size},
+      {"COMP1", "avr-as -mmcu=*[CHIP]* -I *[IDIR]* *[TDIR]*Sketch.S -o *[TDIR]*Sketch.o "},
+      {"COMP2", "avr-ld -mavrtiny *[TDIR]*Sketch.o -o *[TDIR]*Sketch.elf "},
+      {"TOHEX", tohex},
+      {"LST", list},
+      {"SIZE", size},
   };
   private static String[][] build = {
-    {"TOHEX", tohex},
-    {"LST",   list},   // Note add "-l' for source path and line numbers (Warning: large lines!)
-    {"SIZE",  size},
+      {"TOHEX", tohex},
+      {"LST", list},   // Note add "-l' for source path and line numbers (Warning: large lines!)
+      {"SIZE", size},
   };
-  private static Map<String,Integer>  fuses = new HashMap<>();
+  private static Map<String, Integer> fuses = new HashMap<>();
 
   static {
     // Define fuse bits
@@ -143,35 +142,21 @@ class ATTinyCompiler {
     fuses.put("rstdisbl", 1); // External Reset Disable
   }
 
-  private static void removeFiles (String tmpDir) {
-    // Remove any prior tmp files
-    final File[] files = (new File(tmpDir)).listFiles();
-    if (files != null) {
-      for (File file : files) {
-        if (!file.isDirectory()) {
-          file.delete();
-        }
-      }
-    }
-  }
-
-  static Map<String,String> compile (String src, Map<String,String> tags, JFrame tinyIde) throws Exception {
+  static Map<String, String> compile (String src, Map<String, String> tags, JFrame tinyIde) throws Exception {
     String tmpDir = tags.get("TDIR");
     String tmpExe = tags.get("TEXE");
     String srcName = tags.get("FNAME").toLowerCase();
-    removeFiles(tmpDir);
+    Utility.removeFiles(new File(tmpDir));
     boolean doAsm = srcName.endsWith(".s");
     boolean preOnly = (srcName.endsWith(".c") || srcName.endsWith(".cpp")) && "PREONLY".equals(tags.get("PREPROCESS"));
     boolean genProto = (srcName.endsWith(".c") || srcName.endsWith(".cpp")) && "GENPROTOS".equals(tags.get("PREPROCESS"));
     byte fuseBits = 0x0F;
     String clock = null;
     String chip = "attiny10";
-    boolean arduino = false;
-    Map<String,String> libraries = new HashMap<>();
     StringBuilder defines = new StringBuilder();
-    Map<String,String> out = new HashMap<>();
+    Map<String, String> out = new HashMap<>();
     List<String> warnings = new ArrayList<>();
-    Map<String,Integer[]> exports = new LinkedHashMap<>();
+    Map<String, Integer[]> exports = new LinkedHashMap<>();
     // Process #pragma and #include directives
     int lineNum = 0;
     int LastIncludeLine = 1;
@@ -187,68 +172,56 @@ class ATTinyCompiler {
         if (parts.length > 1) {
           tags.put("PRAGMA." + parts[0].toUpperCase(), parts[1]);
           switch (parts[0]) {
-          case "fuses":                                         // Attiny4,5,9,10 fuse bits
-            byte tmp = 0;
-            for (int ii = 1; ii < parts.length; ii++) {
-              if (fuses.containsKey(parts[ii])) {
-                tmp |= (byte) fuses.get(parts[ii]).intValue();
-              } else {
-                System.out.println("#pragma unknown fuse: " + parts[ii]);
-                out.put("ERR", "#pragma unknown fuse: " + parts[ii]);
-                return out;
+            case "fuses":                                         // Attiny4,5,9,10 fuse bits
+              byte tmp = 0;
+              for (int ii = 1; ii < parts.length; ii++) {
+                if (fuses.containsKey(parts[ii])) {
+                  tmp |= (byte) fuses.get(parts[ii]).intValue();
+                } else {
+                  System.out.println("#pragma unknown fuse: " + parts[ii]);
+                  out.put("ERR", "#pragma unknown fuse: " + parts[ii]);
+                  return out;
+                }
               }
-            }
-            fuseBits = (byte) ~tmp;
-            out.put("FUSES", "0x" + Integer.toHexString(fuseBits));
-            break;
-          case "clock":                                         // Sets F_CPU #define
-            clock = parts[1];
-            break;
-          case "chip":                                          // Sets -mmcu compile option
-            chip = parts[1];
-            break;
-          case "define":                                        // Sets -D compile option to parts[1]
-            defines.append("-D").append(parts[1]).append(" ");
-            break;
-          case "hfuse":
-            out.put("HFUSE", parts[1]);                         // Sets value of *[HFUSE]* tag in "out" Map
-            break;
-          case "lfuse":
-            out.put("LFUSE", parts[1]);                         // Sets value of *[LFUSE]* tag in "out" Map
-            break;
-          case "efuse":
-            out.put("EFUSE", parts[1]);                         // Sets value of *[EFUSE]* tag in "out" Map
-            break;
-          case "xparm":                                         // Defines exported parameter
-            exports.put(parts[1], new Integer[0]);
-            break;
-          default:
-            warnings.add("Unknown pragma: " + line + " (ignored)");
-            break;
+              fuseBits = (byte) ~tmp;
+              out.put("FUSES", "0x" + Integer.toHexString(fuseBits));
+              break;
+            case "clock":                                         // Sets F_CPU #define
+              clock = parts[1];
+              break;
+            case "chip":                                          // Sets -mmcu compile option
+              chip = parts[1];
+              break;
+            case "define":                                        // Sets -D compile option to parts[1]
+              defines.append("-D").append(parts[1]).append(" ");
+              break;
+            case "hfuse":
+              out.put("HFUSE", parts[1]);                         // Sets value of *[HFUSE]* tag in "out" Map
+              break;
+            case "lfuse":
+              out.put("LFUSE", parts[1]);                         // Sets value of *[LFUSE]* tag in "out" Map
+              break;
+            case "efuse":
+              out.put("EFUSE", parts[1]);                         // Sets value of *[EFUSE]* tag in "out" Map
+              break;
+            case "xparm":                                         // Defines exported parameter
+              exports.put(parts[1], new Integer[0]);
+              break;
+            default:
+              warnings.add("Unknown pragma: " + line + " (ignored)");
+              break;
           }
         } else {
           warnings.add("Invalid pragma: " + line + " (ignored)");
         }
       } else if (line.startsWith("#include")) {
         LastIncludeLine = Math.max(LastIncludeLine, lineNum);
-        if (line.toLowerCase().contains("\"arduino.h\"")) {
-          arduino = true;
-        } else {
-          Matcher mat = libMatch.matcher(line);
-          if (mat.find()) {
-            // Build list of #include <lib.h> references
-            String libName = mat.group(1).toLowerCase();
-            libName = libName.contains(".") ? libName.substring(0, libName.indexOf(".")) : libName;
-            libraries.put(libName, libName);
-          }
-        }
       }
     }
     tags.put("CHIP", chip);
     tags.put("CLOCK", clock != null ? clock : "8000000");
     tags.put("DEFINES", defines.toString());
     // Build list of files we need to compile and link
-    List<String> compFiles = new ArrayList<>();
     ATTinyC.ChipInfo chipInfo = ATTinyC.progProtocol.get(chip.toLowerCase());
     if (chipInfo == null) {
       throw new IllegalStateException("Unknown chip type: " + chip);
@@ -257,13 +230,12 @@ class ATTinyCompiler {
       out.put("INFO", "chip: " + chip + ", clock: " + tags.get("CLOCK") + ", fuses: " + Utility.hexChar(fuseBits));
     } else {
       out.put("INFO", "chip: " + chip + ", clock: " + tags.get("CLOCK") + ", lfuse: " + out.get("LFUSE") +
-          ", hfuse: " + out.get("HFUSE") +", efuse: " + out.get("EFUSE"));
+          ", hfuse: " + out.get("HFUSE") + ", efuse: " + out.get("EFUSE"));
     }
     ATTinyC.ProgressBar progress = null;
     try {
-      // Copy contents of "source" pane to temp file with appropriate extension for code type
+      // Copy contents of "source" pane to Sketch file with appropriate extension for code type
       String mainFile = doAsm ? "Sketch.S" : "Sketch.cpp";
-      compFiles.add(mainFile);
       Utility.saveFile(tmpDir + mainFile, src);
       // Run Compile and Link Sequences
       if (doAsm) {
@@ -281,40 +253,14 @@ class ATTinyCompiler {
           out.put(seq[0], ret);
         }
       } else {
-        // Copy selected resource files listed in "arduinofiles.txt" into tmpDir so compiler can reference them
-        String cores = Utility.getFile("res:arduinocore.txt");
-        String[] coreList = cores.split("\n");
-        for (String core : coreList) {
-          core = core.trim();
-          if (core.startsWith("//")) {
-            continue;
-          }
-          String fName = (new File(core)).getName();
-          String fPath = (new File(core)).getParent();
-          if (arduino && (chipInfo.lib.matches(fPath) || (chipInfo.useCore && "tinyCore".matches(fPath)))) {
-            Utility.copyResourceToDir(core, tmpDir);
-            if (fName.toLowerCase().endsWith(".c") || fName.toLowerCase().endsWith(".cpp") || fName.toLowerCase().endsWith(".s")) {
-              compFiles.add(fName);
-            }
-          }
-        }
-        // Copy over header and code files for any libraries referenced
-        String libs = Utility.getFile("res:arduinolib.txt");
-        String[] libList = libs.split("\n");
-        for (String lib : libList) {
-          lib = lib.trim();
-          if (lib.startsWith("//")) {
-            continue;
-          }
-          String fName = (new File(lib)).getName();
-          String fPath = (new File(lib)).getParent();
-          if (fPath != null && libraries.containsKey(fPath.toLowerCase())) {
-            Utility.copyResourceToDir("libraries" + fileSep + lib, tmpDir);
-            if (fName.toLowerCase().endsWith(".c") || fName.toLowerCase().endsWith(".cpp") || fName.toLowerCase().endsWith(".s")) {
-              compFiles.add(fName);
-            }
-          }
-        }
+        List<String> compFiles = new ArrayList<>();
+        compFiles.add(mainFile);
+        // Copy "core" and core "variant" files into tmpDir so compiler can reference them
+        Utility.copyResourcesToDir(chipInfo.core, tmpDir);
+        Utility.copyResourcesToDir(chipInfo.variant, tmpDir);
+        File[] coreFiles = (new File(tmpDir)).listFiles();
+        // Copy "lib" files into tmpDir so compiler can reference them
+        Utility.copyResourcesToDir(chipInfo.libs, tmpDir);
         if (preOnly || genProto) {
           try {
             // Preprocess .cpp source code using GNU c++ compiler
@@ -375,30 +321,27 @@ class ATTinyCompiler {
             return tags;
           }
         }
+        StringBuilder linkList = new StringBuilder();
+        Map<String,String> codeFiles = new HashMap<>();
+        File[] files = (new File(tmpDir)).listFiles();
+        if (files != null) {
+          for (File file : files) {
+            String fName = file.getName();
+            String[] parts = fName.toLowerCase().split("\\.");
+            if (parts.length > 1 && ("cpp".equals(parts[1]) || "c".equals(parts[1]))) {
+              codeFiles.put(parts[0], fName);
+            }
+          }
+        }
+        // Compile source code and add in included code files as they are discovered
         progress = new ATTinyC.ProgressBar(tinyIde, "Compiling and Building");
         progress.setMaximum(compFiles.size());
         int progCount = 0;
         progress.setValue(progCount);
-        // Compile all source files
-        StringBuilder linkList = new StringBuilder();
-        for (String compFile : compFiles) {
-          String suffix = compFile.substring(compFile.indexOf("."));
-          tags.put("IFILE", compFile);
+        for (int ii = 0; ii < compFiles.size(); ii++) {
+          String compFile = compFiles.get(ii);
           linkList.append(tmpDir).append(compFile).append(".o ");
-          String cmd;
-          switch (suffix.toLowerCase()) {
-          case ".c":
-            cmd = Utility.replaceTags(tmpExe + "bin" + fileSep + compC, tags);
-            break;
-          case ".cpp":
-            cmd = Utility.replaceTags(tmpExe + "bin" + fileSep + compCpp, tags);
-            break;
-          case ".s":
-            cmd = Utility.replaceTags(tmpExe + "bin" + fileSep + compAsm, tags);
-            break;
-          default:
-            throw new IllegalStateException("Unknown file type: " + suffix);
-          }
+          String cmd = getCompileCommand(compFile, tags);
           System.out.println("Run: " + cmd);
           Process proc = Runtime.getRuntime().exec(cmd);
           String ret = Utility.runCmd(proc);
@@ -408,6 +351,43 @@ class ATTinyCompiler {
             System.out.println(msg);
             tags.put("ERR", msg);
             return tags;
+          }
+
+          // Scan .d file for include files that need to also be compiled
+          String buf = Utility.getFile(tmpDir + compFile + ".d");
+          StringTokenizer tok = new StringTokenizer(buf, "\n");
+          while (tok.hasMoreElements()) {
+            String line = tok.nextToken().trim();
+            line = line.substring(tmpDir.length());
+            if (!line.contains(mainFile)) {
+              if (line.endsWith("\\")) {
+                line = line.substring(0, line.length() - 1).trim();
+              }
+              String[] parts = line.split("\\.");
+              if (parts.length > 1 && "h".equals(parts[1])) {
+                String codeFile = codeFiles.get(parts[0].toLowerCase());
+                if (codeFile != null) {
+                  // Add in code file matching #included header
+                  if (!compFiles.contains(codeFile)) {
+                    compFiles.add(codeFile);
+                    progress.setMaximum(compFiles.size());
+                  }
+                } else if ("arduino".equals(parts[0].toLowerCase())) {
+                  // Add all core files into the list of source files to compile (can we improve this?)
+                  if (coreFiles != null) {
+                    for (File file : coreFiles) {
+                      String fName = file.getName();
+                      String[] cParts = fName.toLowerCase().split("\\.");
+                      if (cParts.length == 2 && ("cpp".equals(cParts[1]) || "c".equals(cParts[1]))) {
+                        if (!compFiles.contains(fName)) {
+                          compFiles.add(fName);
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
           progress.setValue(++progCount);
         }
@@ -461,7 +441,7 @@ class ATTinyCompiler {
     if ("TPI".equals(chipInfo.prog)) {
       // If attiny10 series, prefix with fuse settings
       buf = ":020000020000FC\n" +  // Set origin at 0
-            "*" + Utility.hexChar(fuseBits) + "\n" + buf;
+          "*" + Utility.hexChar(fuseBits) + "\n" + buf;
     }
     out.put("HEX", buf);
     out.put("CHIP", chip);
@@ -509,7 +489,7 @@ class ATTinyCompiler {
             exVars.append(name).append(":").append(Integer.toHexString(add)).append(":").append(size).append("\n");
           } else {
             warnings.add("Data for #pragma xparm: " + name + " not found in .data section - " +
-                         "declare with __attribute__ ((section (\".data\")))");
+                "declare with __attribute__ ((section (\".data\")))");
           }
         }
         out.put("XPARMS", exVars.toString());
@@ -526,5 +506,26 @@ class ATTinyCompiler {
       out.put("WARN", tmp.toString());
     }
     return out;
+  }
+
+  private static String getCompileCommand (String compFile, Map<String, String> tags) {
+    String tmpExe = tags.get("TEXE");
+    String suffix = compFile.substring(compFile.indexOf("."));
+    tags.put("IFILE", compFile);
+    String cmd;
+    switch (suffix.toLowerCase()) {
+      case ".c":
+        cmd = Utility.replaceTags(tmpExe + "bin" + fileSep + compC, tags);
+        break;
+      case ".cpp":
+        cmd = Utility.replaceTags(tmpExe + "bin" + fileSep + compCpp, tags);
+        break;
+      case ".s":
+        cmd = Utility.replaceTags(tmpExe + "bin" + fileSep + compAsm, tags);
+        break;
+      default:
+        throw new IllegalStateException("Unknown file type: " + suffix);
+    }
+    return cmd;
   }
 }

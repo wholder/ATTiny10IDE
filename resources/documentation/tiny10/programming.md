@@ -7,7 +7,7 @@ ATTiny10IDE supports several different ways to program your compiled code into a
 Here are the steps you can follow to program an ATTiny10 using this method:
  1. Use "**`File->Open`**" to load the source file, or type your code into the "Source Code" pane and save it using the appropriate file extension.
  2. Select "**`Actions->Build`**" to compile, or assemble the code.
- 3. Select "**`Actions->TPI Programmer->Generate Arduino Programmer Code`**" and save to a .ino (Arduino Sketch) file when prompted.
+ 3. Select "**`Actions->Generate Arduino Programmer Code`**" and save to a .ino (Arduino Sketch) file when prompted.
  4. Quit ATTiny10IDE so it does not interfere with the Arduino IDE's access to the Arduino's serial port.
  5. Load the file you generated into the Arduino (it will prompt you to create a folder for this file.  Choose Yes.)
  6. Program the Sketch into the Arduino using the "Upload" Button.
@@ -25,8 +25,8 @@ You can also use this Sketch to program as many ATTiny10s as needed with the cod
  3. Open, or write the source code you want to compile and program into the ATtiny10.
  4. Select "**`Actions->Build`**" to compile. or assemble the code.
  5. Connect the Arduino to the ATTiny10 using the same connections shown above.
- 5. Select "**`Actions->TPI Programmer->Device Signature`**" to verify the ATTiny10 is properly connected.
- 6. Select "**`Actions->TPI Programmer->Program Device`**" to upload and program the code into the ATtiny10.
+ 5. Select "**`Actions->Read Device Signature`**" to verify the ATTiny10 is properly connected.
+ 6. Select "**`Actions->Program Flash and Fuse(s)`**" to upload and program the code into the ATtiny10.
 
 <p align="center"><img src="images/Arduino%20Programmer.jpg" width="600" height="440"></p>
 

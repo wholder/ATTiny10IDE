@@ -1,8 +1,10 @@
-import sun.nio.cs.UTF_32;
-
 import java.io.*;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -16,6 +18,7 @@ import java.util.zip.CRC32;
 class Utility {
   private static final String   StartMarker = "//:Begin Embedded Markdown Data (do not edit)";
   private static final String   EndMarker = "\n//:End Embedded Markdown Data";
+  private static final String   fileSep =  System.getProperty("file.separator");
   private static Utility   util = new Utility();
   private static char[]    hex = {'0', '1', '2', '3', '4', '5', '6', '7',
                                   '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
@@ -98,6 +101,24 @@ class Utility {
       return new String(data, StandardCharsets.UTF_8);
     }
     throw new IllegalStateException("getFile() " + file + " not found");
+  }
+
+  /**
+   * Recursively remove files and directories from directory "dir"
+   * @param dir starting directory
+   */
+  static void removeFiles (File dir) {
+    final File[] files = dir.listFiles();
+    if (files != null) {
+      for (File file : files) {
+        if (file.isDirectory()) {
+          removeFiles(file);
+          file.delete();
+        } else {
+          file.delete();
+        }
+      }
+    }
   }
 
   static Properties getResourceMap (String file) throws IOException {
@@ -185,6 +206,34 @@ class Utility {
     }
   }
 
+  static void copyResourcesToDir (String base, String tmpDir) throws URISyntaxException, IOException {
+    if (base != null) {
+      File path = new File(tmpDir);
+      if (!path.exists()) {
+        path.mkdirs();
+      }
+      URL url = Utility.class.getResource(base);
+      if (url != null) {
+        URI uri = url.toURI();
+        Path myPath;
+        if (uri.getScheme().equals("jar")) {
+          java.nio.file.FileSystem fileSystem = FileSystems.newFileSystem(uri, Collections.emptyMap());
+          myPath = fileSystem.getPath("/");
+        } else {
+          myPath = Paths.get(uri);
+        }
+        Stream<Path> walk = Files.walk(myPath, 1);
+        for (Iterator<Path> it = walk.iterator(); it.hasNext(); ) {
+          Path item = it.next();
+          String fName = item.getFileName().toString();
+          if (!fName.equals(base)) {
+            copyResourceToDir(base + fileSep + fName, tmpDir);
+          }
+        }
+      }
+    }
+  }
+
   /**
    * Scans input code for a comment block containing encoded markdown text and, if present, extracts and
    * decodes it along with the source code (minus the comment block)
@@ -265,16 +314,6 @@ class Utility {
     return crc.getValue();
   }
 
-  /*
-  public static void main (String[] args) {
-    long start = System.currentTimeMillis();
-    long checksum = crcZipfile("toolchains/MacToolchain.zip");
-    long end = System.currentTimeMillis();
-    long elapsed = end - start;
-    int sum = 0;
-  }
-  */
-
   static int fromHex (char cc) {
     cc = Character.toUpperCase(cc);
     return cc >= 'A' ? cc - 'A' + 10 : cc - '0';
@@ -299,5 +338,17 @@ class Utility {
 
   static boolean bit (int val, int bit) {
     return (val & (1 << bit)) != 0;
+  }
+
+  public static void main (String[] args) {
+    List<String> list = new ArrayList<>();
+    int jj = 1;
+    list.add("item " + jj++);
+    for (int ii = 0; ii < list.size(); ii++) {
+      System.out.println(list.get(ii));
+      if (list.size() < 10) {
+        list.add("item " + jj++);
+      }
+    }
   }
 }

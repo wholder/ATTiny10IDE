@@ -6,8 +6,6 @@ ATTiny10IDE currently supports using the ATTiny25/45/85 and ATTiny24/44/84 using
     #pragma efuse 0xFF        // default value
     #pragma hfuse 0xDF        // default value
     #pragma lfuse 0x62        // default value
-    #pragma define  NO_MILLIS
-    #pragma define  NO_TONE
     
     #include "Arduino.h"
     
@@ -22,13 +20,7 @@ ATTiny10IDE currently supports using the ATTiny25/45/85 and ATTiny24/44/84 using
       delay(500);
     }
 
-Notice the use of `#pragma` statements to select the chip type (`attiny85`) as well as the values for the fuses.  In addition, the `define` pragma allows you to pass in values to the compiler to enable, or disable certain features of the Arduino-compatible library code.  In this case, to save code space and interrupt overhead, the `NO_MILLIS` define turns off support for the `milllis()` function (and related code) and the `NO_TONE` define removes support for the Arduino `Tone()` function.  The following define values can also be to add support for Print-related functions:
-
-    PRINT_USE_BASE_BIN                    Bin Supported
-    PRINT_USE_BASE_HEX                    Hex Supported
-    PRINT_USE_BASE_OCT                    Oct Supported
-    PRINT_USE_BASE_DEC                    Dec Supported
-    PRINT_USE_BASE_ARBITRARY              Full Support For Arbitrary Bases, Biggest
+Notice the use of `#pragma` statements to select the chip type (`attiny85`) as well as the values for the fuses.  In addition, the `define` pragma allows you to pass in values to the compiler to enable, or disable certain features of the Arduino-compatible library code. 
 
 ## Writing C-style Code for the ATTiny4/5/9/10
 

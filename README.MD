@@ -23,7 +23,7 @@ ATTiny10IDE supports several different ways to program your compiled code into a
 Here are the steps you can follow to program an ATTiny10 using this method:
  1. Use "**`File->Open`**" to load the _source_ file, or type your code into the "Source Code" pane and save it using the appropriate file extension.
  2. Select "**`Actions->Build`**" to compile. or assemble the code.
- 3. Select "**`Actions->TPI Programmer->Generate Arduino Programmer Code`**" and save to a .ino (Arduino Sketch) file when prompted.
+ 3. Select "**`Actions->Generate Arduino Programmer Code`**" and save to a .ino (Arduino Sketch) file when prompted.
  4. Quit ATTiny10IDE so it does not interfere with the Arduino IDE's access to the Arduino's serial port.
  5. Load the file you generated into the Arduino (it will prompt you to create a folder for this file.  Choose Yes.)
  6. Program the Sketch into the Arduino using the "Upload" Button.
@@ -39,8 +39,8 @@ You can use this Sketch to program as many ATTiny10s as needed, but you can also
  3. Open, or write the source code you want to compile and program into the ATtiny10.
  4. Select "**`Actions->Build`**" to compile. or assemble the code.
  5. Connect the Arduino to the ATTiny10 using the same connections shown above.
- 5. Select "**`Actions->TPI Programmer->Device Signature`**" to verify the ATTiny10 is properly connected.
- 6. Select "**`Actions->TPI Programmer->Program Device`**" to upload and program the code into the ATtiny10.
+ 5. Select "**`Actions->Read Device Signature`**" to verify the ATTiny10 is properly connected.
+ 6. Select "**`Actions->Program Flash and Fuse(s)`**" to upload and program the code into the ATtiny10.
 
 <p align="center"><img src="/images/Arduino%20Programmer.JPG" width="600" height="440"></p>
 
@@ -129,8 +129,6 @@ ATTiny10IDE currently supports using the ATTiny25/45/85 and ATTiny24/44/84 using
     #pragma efuse 0xFF        // default value
     #pragma hfuse 0xDF        // default value
     #pragma lfuse 0x62        // default value
-    #pragma define  NO_MILLIS
-    #pragma define  NO_TONE
     
     #include "Arduino.h"
     
@@ -145,17 +143,14 @@ ATTiny10IDE currently supports using the ATTiny25/45/85 and ATTiny24/44/84 using
       delay(500);
     }
 
-Notice the use of `#pragma` statements to select the chip type (`attiny85`) as well as the values for the fuses.  In addition, the `define` pragma allows you to pass in values to the compiler to enable, or disable certain features of the Arduino-compatible library code.  In this case, to save code space and interrupt overhead, the `NO_MILLIS` define turns off support for the `milllis()` function (and related code) and the `NO_TONE` define removes support for the Arduino `Tone()` function.  The following define values can also be to add support for Print-related functions:
-
-    PRINT_USE_BASE_BIN                    Bin Supported
-    PRINT_USE_BASE_HEX                    Hex Supported
-    PRINT_USE_BASE_OCT                    Oct Supported
-    PRINT_USE_BASE_DEC                    Dec Supported
-    PRINT_USE_BASE_ARBITRARY              Full Support For Arbitrary Bases, Biggest
+Notice the use of `#pragma` statements to select the chip type (`attiny85`) as well as the values for the fuses.  In addition, the `define` pragma allows you to pass in values to the compiler to enable, or disable certain features of the Arduino-compatible library code.
 
 ## Recent Updates
 
  - New toolchains for Mac, Windows & Linux extracted and condensed from Arduino 1.8.8
+ - Reorganized Action menu and added Target menu
+ - Switched TinyX5 and TinyX4 cores and libs to [ATTinyCore by Spence Konde](https://github.com/SpenceKonde/ATTinyCore)
+ - Now uses .d files to determine dependencies for included library files
 
 ## Credit and Thanks
 

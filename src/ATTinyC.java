@@ -29,7 +29,7 @@ import static javax.swing.JOptionPane.showMessageDialog;
 
 /**
    *  An IDE for ATTiny10 Series Microcontrollers
-   *  Author: Wayne Holder, 2017
+   *  Author: Wayne Holder, 2011-2019
    *  License: MIT (https://opensource.org/licenses/MIT)
    */
 
@@ -43,7 +43,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private static KeyStroke          SAVE_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_S, cmdMask) ;
   private static KeyStroke          QUIT_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_Q, cmdMask) ;
   private static KeyStroke          BUILD_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_B, cmdMask) ;
-  static Map<String,ChipInfo>       progProtocol = new HashMap<>();
+  static Map<String,ChipInfo>       progProtocol = new LinkedHashMap<>();
   private enum                      Tab {DOC(0), SRC(1), LIST(2), HEX(3), PROG(4), INFO(5); final int num; Tab(int num) {this.num = num;}}
   private String                    osName = System.getProperty("os.name").toLowerCase();
   private enum                      OpSys {MAC, WIN, LINUX}
@@ -53,7 +53,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private CodeEditPane              codePane;
   private MyTextPane                listPane, hexPane, progPane, infoPane;
   private JMenuItem                 saveMenu;
-  private String                    tmpDir, tmpExe, chip, editFile, exportParms;
+  private RadioMenu                 targetMenu;
+  private String                    tmpDir, tmpExe, avrChip, editFile, exportParms;
   private boolean                   directHex, compiled, codeDirty;
   private File                      cFile;
   private transient Preferences     prefs = Preferences.userRoot().node(this.getClass().getName());
@@ -83,16 +84,16 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   }
 
   static class ChipInfo {
-    String  prog, lib, part, fuses, signature;
-    boolean useCore;
+    String  prog, core, variant, libs, part, fuses, signature;
 
-    ChipInfo (String prog, String lib, String part, String fuses, String signature, boolean useCore) {
+    ChipInfo (String prog, String core, String variant, String libs, String part, String fuses, String signature) {
       this.prog = prog;
-      this.lib = lib;
+      this.core = core;
+      this.variant = variant;
+      this.libs = libs;
       this.part = part;             // For AVRDUDE -p switch
       this.fuses = fuses;
       this.signature = signature;
-      this.useCore = useCore;
     }
   }
 
@@ -130,24 +131,50 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     }
   }
 
-  private static void addChip(String name, ChipInfo info) {
+  static class RadioMenu extends JMenu {
+    RadioMenu (String name) {
+      super(name);
+    }
+
+    void setSelected (String name) {
+      for (int ii = 0; ii < getItemCount(); ii++) {
+        JMenuItem item = getItem(ii);
+        if (item != null && name.equals(item.getText())) {
+          item.setSelected(true);
+          return;
+        }
+      }
+    }
+
+    String getSelected () {
+      for (int ii = 0; ii < getItemCount(); ii++) {
+        JMenuItem item = getItem(ii);
+        if (item != null && item.isSelected()) {
+          return item.getText();
+        }
+      }
+      return null;
+    }
+  }
+
+  private static void addChip (String name, ChipInfo info) {
     progProtocol.put(name, info);
     sigLookup.put(info.signature, name);
   }
 
   static {
-    // List of ATtiny types, Protocol used to Program them, etc.
-    //       Part Name              Protocol  Library   Part   Fuse(s)          Signature  UseCore
-    addChip("attiny4",  new ChipInfo("TPI",  "tiny10",  "t4", "FF",             "1E8F0A", false));
-    addChip("attiny5",  new ChipInfo("TPI",  "tiny10",  "t5", "FF",             "1E8F09", false));
-    addChip("attiny9",  new ChipInfo("TPI",  "tiny10",  "t9", "FF",             "1E9008", false));
-    addChip("attiny10", new ChipInfo("TPI",  "tiny10", "t10", "FF",             "1E9003", false));
-    addChip("attiny24", new ChipInfo("ISP",  "tinyX4", "t24", "l:60,h:DF,e:FF", "1E910B", true));
-    addChip("attiny44", new ChipInfo("ISP",  "tinyX4", "t44", "l:60,h:DF,e:FF", "1E9207", true));
-    addChip("attiny84", new ChipInfo("ISP",  "tinyX4", "t84", "l:60,h:DF,e:FF", "1E930C", true));
-    addChip("attiny25", new ChipInfo("ISP",  "tinyX5", "t25", "l:60,h:DF,e:FF", "1E9108", true));
-    addChip("attiny45", new ChipInfo("ISP",  "tinyX5", "t45", "l:60,h:DF,e:FF", "1E9206", true));
-    addChip("attiny85", new ChipInfo("ISP",  "tinyX5", "t85", "l:60,h:DF,e:FF", "1E930B", true));
+    // List of ATTiny types, Protocol used to Program them, etc.
+    //       Part Name              Protocol  Core        Variant      Libs         Part  Fuse(s)          Signature
+    addChip("attiny4",  new ChipInfo("TPI",  "core10",     null,        null,     "t4",  "FF",             "1E8F0A"));
+    addChip("attiny5",  new ChipInfo("TPI",  "core10",     null,        null,     "t5",  "FF",             "1E8F09"));
+    addChip("attiny9",  new ChipInfo("TPI",  "core10",     null,        null,     "t9",  "FF",             "1E9008"));
+    addChip("attiny10", new ChipInfo("TPI",  "core10",     null,        null,     "t10", "FF",             "1E9003"));
+    addChip("attiny24", new ChipInfo("ISP",  "coretiny",  "corex4",   "libtiny",  "t24", "l:60,h:DF,e:FF", "1E910B"));
+    addChip("attiny44", new ChipInfo("ISP",  "coretiny",  "corex4",   "libtiny",  "t44", "l:60,h:DF,e:FF", "1E9207"));
+    addChip("attiny84", new ChipInfo("ISP",  "coretiny",  "corex4",   "libtiny",  "t84", "l:60,h:DF,e:FF", "1E930C"));
+    addChip("attiny25", new ChipInfo("ISP",  "coretiny",  "corex5",   "libtiny",  "t25", "l:60,h:DF,e:FF", "1E9108"));
+    addChip("attiny45", new ChipInfo("ISP",  "coretiny",  "corex5",   "libtiny",  "t45", "l:60,h:DF,e:FF", "1E9206"));
+    addChip("attiny85", new ChipInfo("ISP",  "coretiny",  "corex5",   "libtiny",  "t85", "l:60,h:DF,e:FF", "1E930B"));
   }
 
   {
@@ -243,6 +270,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     codePane = new CodeEditPane(prefs);
     codePane.setCodeChangeListener(() -> {
       setDirtyIndicator(codeDirty = true);
+      updateChip(codePane.getText());
       compiled = false;
       listPane.setForeground(Color.red);
       hexPane.setForeground(Color.red);
@@ -264,7 +292,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     });
     hexPane =  new MyTextPane(tabPane, "Hex Output", "Intel Hex Output file for programmer");
     progPane = new MyTextPane(tabPane, "Programmer", "Records communication with Arduino-based programmer");
-    infoPane = new MyTextPane(tabPane, "Error Info", "Displays additional information about errors");
+    infoPane = new MyTextPane(tabPane, "Error Info", "Displays additional information about IDE and error messages");
     hexPane.setEditable(false);
     progPane.setEditable(false);
     infoPane.setEditable(false);
@@ -419,7 +447,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
                 // Remove path to tmpDir from error messages
                 String errText = compileMap.get("ERR").replace(tmpDir + compName, trueName);
                 errText = errText.replace("\n", "<br>");
-                Pattern lineRef = Pattern.compile("(" + trueName + ":([0-9]+?:[0-9]+?):) (error|note|fatal error):");
+                Pattern lineRef = Pattern.compile("(" + trueName + ":([0-9]+?:[0-9]+?):) (fatal error|error|note):");
                 Matcher mat = lineRef.matcher(errText);
                 StringBuffer buf = new StringBuffer("<html><body><tt>");
                 while (mat.find()) {
@@ -450,7 +478,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
                 listPane.setText(listing.replace(tmpDir + compName, trueName));
                 hexPane.setForeground(Color.black);
                 hexPane.setText(compileMap.get("HEX"));
-                chip = compileMap.get("CHIP");
+                avrChip = compileMap.get("CHIP");
                 compiled = true;
               }
             } catch (Exception ex) {
@@ -522,340 +550,389 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     });
     actions.addSeparator();
     /*
-     *    TPI Programmer Menus
+     *    Program Chip Menu
      */
-    JMenu tpiProg = new JMenu("TPI Programmer");
-    actions.add(tpiProg);
-    actions.addSeparator();
-    tpiProg.add(mItem = new JMenuItem("Program Device"));
-    mItem.setToolTipText("Commands TPI Programmer to Upload and Program Code to Device");
+    actions.add(mItem = new JMenuItem("Program Flash and Fuse(s)"));
+    mItem.setToolTipText("Commands Programmer to Upload and Program Code and Fuses to Device");
     mItem.addActionListener(e -> {
-      try {
-        if (canProgram()) {
-          String hex = hexPane.getText();
-          String protocol = progProtocol.get(chip.toLowerCase()).prog;
-          if ("TPI".equals(protocol)) {
+      if (avrChip != null) {
+        ChipInfo info = progProtocol.get(avrChip);
+        switch (info.prog) {
+          case "TPI":
+            try {
+              if (canProgram()) {
+                String hex = hexPane.getText();
+                selectTab(Tab.PROG);
+                progPane.setText("Sending Code for: " + cFile.getName() + "\n");
+                sendToJPort("\nD\n" + hex + "\n");
+              }
+            } catch (Exception ex) {
+              showErrorDialog(ex.getMessage());
+            }
+            break;
+          case "ISP":
             selectTab(Tab.PROG);
-            progPane.setText("Sending Code for: " + cFile.getName() + "\n");
-            sendToJPort("\nD\n" + hex + "\n");
-          } else {
-            showErrorDialog("TPI Programming is not complatible with selected device");
-          }
-        }
-      } catch (Exception ex) {
-        showErrorDialog(ex.getMessage());
-      }
-    });
-    tpiProg.add(mItem = new JMenuItem("Generate Arduino Programmer Code"));
-    mItem.setToolTipText("Generates Arduino Sketch that can Program Device with Built Code");
-    mItem.addActionListener(e -> {
-      if (canProgram()) {
-        String protocol = progProtocol.get(chip.toLowerCase()).prog;
-        switch (protocol) {
-        case "TPI":
-          try {
-            // Convert Intel Hex into byte array elements
-            String hex = hexPane.getText();
-            CodeImage image = parseIntelHex(hex);
-            byte[] code = image.data;
-            StringBuilder buf = new StringBuilder();
-            boolean first = true;
-            for (int ii = 0; ii < code.length; ii++) {
-              if ((ii & 0x0F) == 0) {
-                buf.append(first ? "\n  " : ",\n  ");
-                first = false;
-              } else {
-                buf.append(", ");
-              }
-              buf.append("0x");
-              buf.append(Utility.hexChar((byte) (code[ii] >> 4)));
-              buf.append(Utility.hexChar(code[ii]));
-            }
-            char fuseCode = Utility.hexChar(image.fuses);
-            String genCode = Utility.getFile("res:ATTiny10GeneratedProgrammer.ino");
-            String outCode = genCode.replace("/*[CODE]*/", buf.toString()).replace("/*[FUSE]*/", Character.toString(fuseCode));
-            outCode = outCode.replace("/*[NAME]*/", cFile.getName());
-            // Handle exported parameters, if any are declared using "#pragma xparm"
-            StringBuilder parms = new StringBuilder();
-            if (exportParms != null && exportParms.length() > 0) {
-              parms.append("\n  ");
-              StringTokenizer tok = new StringTokenizer(exportParms, "\n");
-              while (tok.hasMoreElements()) {
-                String line = tok.nextToken();
-                String[] parts = line.split(":");
-                if (parts.length == 3) {
-                  String name = parts[0];
-                  for (int ii = 0; ii < name.length(); ii++) {
-                    parms.append("'");
-                    parms.append(name.charAt(ii));
-                    parms.append("',");
+            progPane.setText("");
+            Thread tt = new Thread(() -> {
+              try {
+                if (canProgram()) {
+                  // If all fuses are defined in #pragma statements, verify and program, as needed
+                  if (compileMap.containsKey("PRAGMA.LFUSE") && compileMap.containsKey("PRAGMA.HFUSE") && compileMap.containsKey("PRAGMA.EFUSE")) {
+                    // Read current fuse settings from chip
+                    Map<String, String> tags = new HashMap<>();
+                    int retVal = callAvrdude("-U lfuse:r:*[TDIR]*lfuse.hex:h -U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
+                    if (retVal != 0) {
+                      showErrorDialog("Error Verifying Fuse setting with " + ispProgrammer);
+                      return;
+                    }
+                    int[] pFuses = {
+                      Integer.decode(compileMap.get("PRAGMA.LFUSE")),
+                      Integer.decode(compileMap.get("PRAGMA.HFUSE")),
+                      Integer.decode(compileMap.get("PRAGMA.EFUSE"))
+                    };
+                    int[] cFuses = {
+                      Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*lfuse.hex", tags)).trim()),
+                      Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*hfuse.hex", tags)).trim()),
+                      Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*efuse.hex", tags)).trim())
+                    };
+                    String[] tabs = {"LFUSE", "HFUSE", "EFUSE"};
+                    for (int ii = 0; ii < tabs.length; ii++) {
+                      int pFuse = pFuses[ii];
+                      int cFuse = cFuses[ii];
+                      if (pFuse != cFuse) {
+                        // Update fuse value
+                        tags.put("FUSE", tabs[ii].toLowerCase());
+                        tags.put("FVAL", "0x" + Integer.toHexString(pFuse).toUpperCase());
+                        retVal = callAvrdude("-U *[FUSE]*:w:*[FVAL]*:m", tags);
+                        if (retVal != 0) {
+                          showErrorDialog("Error Writing Fuses with " + ispProgrammer);
+                          return;
+                        }
+                      } else {
+                        progPane.append("Fuse " + tabs[ii].toLowerCase() + " already set correctly, so left unchanged\n");
+                      }
+                    }
+                  } else {
+                    progPane.append("Fuses not programmed\n");
                   }
-                  parms.append("0,");
-                  parms.append(parts[2]);
-                  parms.append(",0x");
-                  int add = Integer.parseInt(parts[1], 16);
-                  parms.append(Utility.hexChar((byte) (add >> 12)));
-                  parms.append(Utility.hexChar((byte) (add >> 8)));
-                  parms.append(",0x");
-                  parms.append(Utility.hexChar((byte) (add >> 4)));
-                  parms.append(Utility.hexChar((byte) (add & 0x0F)));
-                  if (tok.hasMoreElements()) {
-                    parms.append(",\n  ");
+                  // Copy contents of "hex" pane to temp file with .hex extension
+                  String hex = hexPane.getText();
+                  FileOutputStream fOut = new FileOutputStream(tmpDir + "code.hex");
+                  fOut.write(hex.getBytes(StandardCharsets.UTF_8));
+                  fOut.close();
+                  // Use AVRDUDE to program chip
+                  Map<String, String> tags = new HashMap<>();
+                  int retVal = callAvrdude("-U flash:w:*[TDIR]*code.hex", tags);
+                  if (retVal != 0) {
+                    showErrorDialog("Error Programming Device Signature with " + ispProgrammer);
                   }
                 }
+              } catch (Exception ex) {
+                showErrorDialog(ex.getMessage());
               }
-              parms.append("\n");
-            }
-            outCode = outCode.replace("/*[PARMS]*/", parms.toString());
-            String genFile = cFile.getAbsolutePath();
-            int dot = genFile.lastIndexOf(".");
-            if (dot > 0) {
-              genFile = genFile.substring(0, dot) + "-prog.ino";
-            }
-            JFileChooser jFileChooser = new JFileChooser();
-            jFileChooser.setSelectedFile(new File(genFile));
-            if (jFileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-              File sFile = jFileChooser.getSelectedFile();
-              if (sFile.exists()) {
-                if (doWarningDialog("Overwrite Existing file?")) {
-                  Utility.saveFile(sFile, outCode);
-                }
-              } else {
-                Utility.saveFile(sFile, outCode);
-              }
-            }
-          } catch (Exception ex) {
-            showErrorDialog(ex.getMessage());
-          }
-          break;
-        case "ISP":
-          showErrorDialog("Protocol '" + protocol + " not currently supported");
-          break;
+            });
+            tt.start();
+            break;
         }
-      }
-    });
-    tpiProg.add(mItem = new JMenuItem("Calibrate Clock"));
-    mItem.setToolTipText("Commands TPI Programmer to Upload and Run Clock Calibration Code on Device");
-    mItem.addActionListener(e -> {
-      try {
-        selectTab(Tab.PROG);
-        progPane.setText("Programming Clock Code\n");
-        String hex = Utility.getFile("res:clockcal.hex");
-        sendToJPort("\nD\n" + hex + "\nM\n");
-      } catch (Exception ex) {
-        showErrorDialog(ex.getMessage());
-      }
-    });
-    tpiProg.add(mItem = new JMenuItem("Device Signature"));
-    mItem.setToolTipText("Commands TPI Programmer to Read and Send Back Device's Signature");
-    mItem.addActionListener(e -> {
-      try {
-        selectTab(Tab.PROG);
-        progPane.setText("Read Device Signature\n");
-        sendToJPort("S\n");
-      } catch (Exception ex) {
-        showErrorDialog(ex.getMessage());
-      }
-    });
-    tpiProg.add(mItem = new JMenuItem("Power On"));
-    mItem.setToolTipText("Commands TPI Programmer to Switch On Power to Device");
-    mItem.addActionListener(e -> {
-      try {
-        progPane.setText("Enable Vcc to target\n");
-        sendToJPort("V\n");
-      } catch (Exception ex) {
-        showErrorDialog(ex.getMessage());
-      }
-    });
-    tpiProg.add(mItem = new JMenuItem("Power Off"));
-    mItem.setToolTipText("Commands TPI Programmer to Switch Off Power to Device");
-    mItem.addActionListener(e -> {
-      try {
-        progPane.setText("Disable Vcc to target\n");
-        sendToJPort("X\n");
-      } catch (Exception ex) {
-        showErrorDialog(ex.getMessage());
+      } else {
+        showErrorDialog("Target device type not selected");
       }
     });
     /*
-     *    ISP Programmer Menus
+     *    Read/Modify Fuse(s) Menu Item
      */
-    JMenu icpProg = new JMenu("ISP Programmer");
-    actions.add(icpProg);
-    icpProg.add(mItem = new JMenuItem("Program Device"));
-    mItem.setToolTipText("Commands Selected ISP Programmer Upload and Program Code to Device");
+    actions.add(mItem = new JMenuItem("Read/Modify Fuse(s)"));
+    mItem.setToolTipText("Commands Programmer to Read and optionally Modify Device's Fuse Byte(s)");
     mItem.addActionListener(e -> {
-      if (chip == null) {
-        showErrorDialog("Chip type not defined (code must be built to define)");
-        return;
-      }
-      selectTab(Tab.PROG);
-      progPane.setText("");
-      Thread tt = new Thread(() -> {
-      try {
-        if (canProgram()) {
-          String hex = hexPane.getText();
-          String protocol = progProtocol.get(chip.toLowerCase()).prog;
-          if (protocol.equals("ISP")) {
-            // Copy contents of "hex" pane to temp file with .hex extension
-            FileOutputStream fOut = new FileOutputStream(tmpDir + "code.hex");
-            fOut.write(hex.getBytes(StandardCharsets.UTF_8));
-            fOut.close();
-            // Use AVRDUDE to program chip
-            Map<String, String> tags = new HashMap<>();
-            int retVal = callAvrdude("-U flash:w:*[TDIR]*code.hex", tags);
-            if (retVal != 0) {
-              showErrorDialog("Error Programming Device Signature with " + ispProgrammer);
-            }
-          } else {
-            showErrorDialog("ISP Programming is not complatible with selected device");
-          }
-        }
-      } catch (Exception ex) {
-        showErrorDialog(ex.getMessage());
-      }
-    });
-    tt.start();
-    });
-    icpProg.add(mItem = new JMenuItem("Device Signature"));
-    mItem.setToolTipText("Commands Selected ISP Programmer to Read and Send Back Device's Signature");
-    mItem.addActionListener(e -> {
-      selectTab(Tab.PROG);
-      progPane.setText("");
-      Thread tt = new Thread(() -> {
-      try {
-        Map<String, String> tags = new HashMap<>();
-        int retVal = callAvrdude("-U signature:r:*[TDIR]*sig.hex:h", tags);
-        if (retVal != 0) {
-          showErrorDialog("Error Reading Device Signature with " + ispProgrammer);
-          return;
-        }
-        String tmp = Utility.getFile(Utility.replaceTags("*[TDIR]*sig.hex", tags)).trim().toUpperCase().replace('X', 'x');
-        String[] sigBytes = tmp.split(",");
-        StringBuilder buf = new StringBuilder();
-        for (String sigByte : sigBytes) {
-          String val = sigByte.split("x")[1];
-          buf.append(val.length() == 2 ? val : "0" + val);
-        }
-        String device = sigLookup.get(buf.toString());
-        progPane.append("Device Signature: " + tmp + " - " + (device != null ? device : "unknown") + "\n");
-      } catch (Exception ex) {
-        ex.printStackTrace();
-      }
-      });
-      tt.start();
-    });
-
-    icpProg.add(mItem = new JMenuItem("Read Fuses"));
-    mItem.setToolTipText("Commands Selected ISP Programmer to Read and Send Back Device's Fuse Settings");
-    mItem.addActionListener(e -> {
-      if (chip == null) {
-        showErrorDialog("Chip type not defined (code must be built to define)");
-        return;
-      }
-      selectTab(Tab.PROG);
-      progPane.setText("");
-      ATTinyC ref = this;
-      Thread tt = new Thread(() -> {
-        try {
-          // Read current fuse settings from chip
-          Map<String, String> tags = new HashMap<>();
-          int retVal = callAvrdude("-U lfuse:r:*[TDIR]*lfuse.hex:h -U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
-          if (retVal != 0) {
-            showErrorDialog("Error Reading Fuses with " + ispProgrammer);
-            return;
-          }
-          int lFuse = Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*lfuse.hex", tags)).trim());
-          int hFuse = Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*hfuse.hex", tags)).trim());
-          int eFuse = Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*efuse.hex", tags)).trim());
-          ParmDialog.ParmItem[][] parmSet = getFuseParms(lFuse, hFuse, eFuse);
-          for (ParmDialog.ParmItem[] col : parmSet) {
-            for (ParmDialog.ParmItem parm : col) {
-              parm.readOnly = true;
-            }
-          }
-          String[] tabs = {"LFUSE", "HFUSE", "EFUSE"};
-          ParmDialog dialog = new ParmDialog(parmSet, tabs, new String[] {"OK"});
-          dialog.setLocationRelativeTo(ref);
-          dialog.setVisible(true);              // Note: this call invokes dialog
-        } catch (Exception ex) {
-          ex.printStackTrace();
-        }
-      });
-      tt.start();
-    });
-    icpProg.add(mItem = new JMenuItem("Program Fuses"));
-    mItem.setToolTipText("Commands Selected ISP Programmer to Program Device's Fuses to New Settings");
-    mItem.addActionListener(e -> {
-      if (chip == null) {
-        showErrorDialog("Chip type not defined (code must be built to define)");
-        return;
-      }
-      selectTab(Tab.PROG);
-      progPane.setText("");
-      Thread tt = new Thread(() -> {
-        try {
-        if (canProgram()) {
-          ChipInfo chipInfo = progProtocol.get(chip.toLowerCase());
-          progPane.setText("");
-          Map<String,String> fuseDefaults = Utility.csvToMap(chipInfo.fuses);
-          int lFuse = Integer.decode(Utility.choose(compileMap.get("PRAGMA.LFUSE"), "0x" + fuseDefaults.get("l")));
-          int hFuse = Integer.decode(Utility.choose(compileMap.get("PRAGMA.HFUSE"), "0x" + fuseDefaults.get("h")));
-          int eFuse = Integer.decode(Utility.choose(compileMap.get("PRAGMA.EFUSE"), "0x" + fuseDefaults.get("e")));
-          ParmDialog.ParmItem[][] parmSet = getFuseParms(lFuse, hFuse, eFuse);
-          String[] tabs = {"LFUSE", "HFUSE", "EFUSE"};
-          ParmDialog dialog = new ParmDialog(parmSet, tabs, new String[] {"Program", "Cancel"});
-          dialog.setLocationRelativeTo(this);
-          dialog.setVisible(true);              // Note: this call invokes dialog
-          if (dialog.wasPressed()) {
-            // Read current fuse settings
-            Map<String, String> tags = new HashMap<>();
-            int retVal = callAvrdude("-U lfuse:r:*[TDIR]*lfuse.hex:h -U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
-            if (retVal != 0) {
-              showErrorDialog("Error Reading Fuses with " + ispProgrammer);
-              return;
-            }
-            int[] chipFuses = {
-              Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*lfuse.hex", tags)).trim()),
-              Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*hfuse.hex", tags)).trim()),
-              Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*efuse.hex", tags)).trim())
-            };
-            for (int ii = 0; ii < chipFuses.length; ii++) {
-              int dFuse = dialog.fuseSet[ii].fuseValue;
-              int cFuse = chipFuses[ii];
-              if (dFuse != cFuse) {
-                // Update fuse value
-                tags.put("FUSE", tabs[ii].toLowerCase());
-                tags.put("FVAL", "0x" + Integer.toHexString(dFuse).toUpperCase());
-                retVal = callAvrdude("-U *[FUSE]*:w:*[FVAL]*:m", tags);
-                if (retVal != 0) {
-                  showErrorDialog("Error Writing Fuses with " + ispProgrammer);
-                  return;
+      if (avrChip != null) {
+        ChipInfo info = progProtocol.get(avrChip);
+        switch (info.prog) {
+          case "TPI":
+            try {
+              String rsp = queryJPort("F\n");
+              if (rsp != null && rsp.startsWith("Fuse:")) {
+                int idx = rsp.indexOf("0xF");
+                String fuse =  rsp.substring(idx + 2, idx + 4);
+                int fVal = Integer.parseInt(fuse, 16);
+                ParmDialog.ParmItem[][] parmSet = getTPIFuseParms(fVal);
+                String[] tabs = {"FUSE"};
+                ParmDialog dialog = new ParmDialog(parmSet, tabs, new String[] {"Program", "Cancel"});
+                dialog.setLocationRelativeTo(this);
+                dialog.setVisible(true);              // Note: this call invokes dialog
+                if (dialog.wasPressed()) {
+                  int val = dialog.fuseSet[0].fuseValue;
+                  fuse = Integer.toHexString(val & 0x0F).toUpperCase();
+                  selectTab(Tab.PROG);
+                  progPane.setText("");
+                  sendToJPort("\nD\n*" + fuse + "\n:00000001FF\n");
                 }
               } else {
-                progPane.append("Fuse " + tabs[ii].toLowerCase() + " already set correctly, so left unchanged\n");
+                showErrorDialog("Unable to read Fuse byte");
               }
+            } catch (Exception ex) {
+              showErrorDialog(ex.getMessage());
             }
-          }
+            break;
+          case "ISP":
+            selectTab(Tab.PROG);
+            progPane.setText("");
+            Thread tt = new Thread(() -> {
+              try {
+                // Read current fuse settings from chip
+                Map<String, String> tags = new HashMap<>();
+                int retVal = callAvrdude("-U lfuse:r:*[TDIR]*lfuse.hex:h -U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
+                if (retVal != 0) {
+                  showErrorDialog("Error Reading Fuses with " + ispProgrammer);
+                  return;
+                }
+                int[] fuses = {
+                  Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*lfuse.hex", tags)).trim()),
+                  Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*hfuse.hex", tags)).trim()),
+                  Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*efuse.hex", tags)).trim())
+                };
+                ParmDialog.ParmItem[][] parmSet = getSPIFuseParms(fuses[0], fuses[1], fuses[2]);
+                String[] tabs = {"LFUSE", "HFUSE", "EFUSE"};
+                ParmDialog dialog = new ParmDialog(parmSet, tabs, new String[] {"Program", "Cancel"});
+                dialog.setLocationRelativeTo(this);
+                dialog.setVisible(true);              // Note: this call invokes dialog
+                if (dialog.wasPressed()) {
+                  for (int ii = 0; ii < fuses.length; ii++) {
+                    int dFuse = dialog.fuseSet[ii].fuseValue;
+                    int cFuse = fuses[ii];
+                    if (dFuse != cFuse) {
+                      // Update fuse value
+                      tags.put("FUSE", tabs[ii].toLowerCase());
+                      tags.put("FVAL", "0x" + Integer.toHexString(dFuse).toUpperCase());
+                      retVal = callAvrdude("-U *[FUSE]*:w:*[FVAL]*:m", tags);
+                      if (retVal != 0) {
+                        showErrorDialog("Error Writing Fuses with " + ispProgrammer);
+                        return;
+                      }
+                    } else {
+                      progPane.append("Fuse " + tabs[ii].toLowerCase() + " already set correctly, so left unchanged\n");
+                    }
+                  }
+                }
+              } catch (Exception ex) {
+                showErrorDialog(ex.getMessage());
+              }
+            });
+            tt.start();
+            break;
         }
-      } catch (Exception ex) {
-        ex.printStackTrace();
+      } else {
+        showErrorDialog("Target device type not selected");
       }
-      });
-      tt.start();
     });
+    /*
+     *    Read Signature
+     */
+    actions.add(mItem = new JMenuItem("Read Device Signature"));
+    mItem.setToolTipText("Commands Programmer to Read and Send Back Device's Signature");
+    mItem.addActionListener(e -> {
+      if (avrChip != null) {
+        ChipInfo info = progProtocol.get(avrChip);
+        switch (info.prog) {
+          case "TPI":
+            try {
+              selectTab(Tab.PROG);
+              progPane.setText("Read Device Signature and Fuse\n");
+              sendToJPort("S\n");
+            } catch (Exception ex) {
+              showErrorDialog(ex.getMessage());
+            }
+            break;
+          case "ISP":
+            selectTab(Tab.PROG);
+            progPane.setText("");
+            Thread tt = new Thread(() -> {
+              try {
+                Map<String, String> tags = new HashMap<>();
+                int retVal = callAvrdude("-U signature:r:*[TDIR]*sig.hex:h", tags);
+                if (retVal != 0) {
+                  showErrorDialog("Error Reading Device Signature with " + ispProgrammer);
+                  return;
+                }
+                String tmp = Utility.getFile(Utility.replaceTags("*[TDIR]*sig.hex", tags)).trim().toUpperCase().replace('X', 'x');
+                String[] sigBytes = tmp.split(",");
+                StringBuilder buf = new StringBuilder();
+                for (String sigByte : sigBytes) {
+                  String val = sigByte.split("x")[1];
+                  buf.append(val.length() == 2 ? val : "0" + val);
+                }
+                String device = sigLookup.get(buf.toString());
+                progPane.append("Device Signature: " + tmp + " - " + (device != null ? device : "unknown") + "\n");
+              } catch (Exception ex) {
+                ex.printStackTrace();
+              }
+            });
+            tt.start();
+            break;
+        }
+      } else {
+        showErrorDialog("Target device type not selected");
+      }
+    });
+    actions.add(mItem = new JMenuItem("Calibrate Device Clock"));
+    mItem.setToolTipText("Commands TPI Programmer to Upload and Run Clock Calibration Code on Device");
+    mItem.addActionListener(e -> {
+      if (avrChip != null) {
+        ChipInfo info = progProtocol.get(avrChip);
+        switch (info.prog) {
+          case "TPI":
+            try {
+              selectTab(Tab.PROG);
+              progPane.setText("Programming Clock Code\n");
+              String hex = Utility.getFile("res:clockcal.hex");
+              sendToJPort("\nD\n" + hex + "\nM\n");
+            } catch (Exception ex) {
+              showErrorDialog(ex.getMessage());
+            }
+            break;
+          case "ISP":
+            showErrorDialog("Not Implemented for ISP Protocol");
+            break;
+        }
+      }
+    });
+    /*
+     *  Generate Arduino Programmer Code Menu
+     */
+    actions.addSeparator();
+    actions.add(mItem = new JMenuItem("Generate Arduino Programmer Code"));
+    mItem.setToolTipText("Generates Arduino Sketch that can Program Device with Built Code");
+    mItem.addActionListener(e -> {
+      if (avrChip != null) {
+        ChipInfo info = progProtocol.get(avrChip);
+        switch (info.prog) {
+          case "TPI":
+            if (canProgram()) {
+              try {
+                // Convert Intel Hex into byte array elements
+                String hex = hexPane.getText();
+                CodeImage image = parseIntelHex(hex);
+                byte[] code = image.data;
+                StringBuilder buf = new StringBuilder();
+                boolean first = true;
+                for (int ii = 0; ii < code.length; ii++) {
+                  if ((ii & 0x0F) == 0) {
+                    buf.append(first ? "\n  " : ",\n  ");
+                    first = false;
+                  } else {
+                    buf.append(", ");
+                  }
+                  buf.append("0x");
+                  buf.append(Utility.hexChar((byte) (code[ii] >> 4)));
+                  buf.append(Utility.hexChar(code[ii]));
+                }
+                char fuseCode = Utility.hexChar(image.fuses);
+                String genCode = Utility.getFile("res:ATTiny10GeneratedProgrammer.ino");
+                String outCode = genCode.replace("/*[CODE]*/", buf.toString()).replace("/*[FUSE]*/", Character.toString(fuseCode));
+                outCode = outCode.replace("/*[NAME]*/", cFile.getName());
+                // Handle exported parameters, if any are declared using "#pragma xparm"
+                StringBuilder parms = new StringBuilder();
+                if (exportParms != null && exportParms.length() > 0) {
+                  parms.append("\n  ");
+                  StringTokenizer tok = new StringTokenizer(exportParms, "\n");
+                  while (tok.hasMoreElements()) {
+                    String line = tok.nextToken();
+                    String[] parts = line.split(":");
+                    if (parts.length == 3) {
+                      String name = parts[0];
+                      for (int ii = 0; ii < name.length(); ii++) {
+                        parms.append("'");
+                        parms.append(name.charAt(ii));
+                        parms.append("',");
+                      }
+                      parms.append("0,");
+                      parms.append(parts[2]);
+                      parms.append(",0x");
+                      int add = Integer.parseInt(parts[1], 16);
+                      parms.append(Utility.hexChar((byte) (add >> 12)));
+                      parms.append(Utility.hexChar((byte) (add >> 8)));
+                      parms.append(",0x");
+                      parms.append(Utility.hexChar((byte) (add >> 4)));
+                      parms.append(Utility.hexChar((byte) (add & 0x0F)));
+                      if (tok.hasMoreElements()) {
+                        parms.append(",\n  ");
+                      }
+                    }
+                  }
+                  parms.append("\n");
+                }
+                outCode = outCode.replace("/*[PARMS]*/", parms.toString());
+                String genFile = cFile.getAbsolutePath();
+                int dot = genFile.lastIndexOf(".");
+                if (dot > 0) {
+                  genFile = genFile.substring(0, dot) + "-prog.ino";
+                }
+                JFileChooser jFileChooser = new JFileChooser();
+                jFileChooser.setSelectedFile(new File(genFile));
+                if (jFileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+                  File sFile = jFileChooser.getSelectedFile();
+                  if (sFile.exists()) {
+                    if (doWarningDialog("Overwrite Existing file?")) {
+                      Utility.saveFile(sFile, outCode);
+                    }
+                  } else {
+                    Utility.saveFile(sFile, outCode);
+                  }
+                }
+              } catch (Exception ex) {
+                showErrorDialog(ex.getMessage());
+              }
+              break;
+            }
+            break;
+          case "ISP":
+            showErrorDialog("Not Implemented for ISP Protocol");
+            break;
+        }
+      } else {
+        showErrorDialog("Target device type not selected");
+      }
+    });
+    if (prefs.getBoolean("developer_features", false)) {
+      actions.addSeparator();
+      actions.add(mItem = new JMenuItem("Power On"));
+      mItem.setToolTipText("Commands TPI Programmer to Switch On Power to Device");
+      mItem.addActionListener(e -> {
+        try {
+          progPane.setText("Enable Vcc to target\n");
+          sendToJPort("V\n");
+        } catch (Exception ex) {
+          showErrorDialog(ex.getMessage());
+        }
+      });
+      actions.add(mItem = new JMenuItem("Power Off"));
+      mItem.setToolTipText("Commands TPI Programmer to Switch Off Power to Device");
+      mItem.addActionListener(e -> {
+        try {
+          progPane.setText("Disable Vcc to target\n");
+          sendToJPort("X\n");
+        } catch (Exception ex) {
+          showErrorDialog(ex.getMessage());
+        }
+      });
+    }
+
+    /*
+     *    Reinstall Toolchain Menu Item
+     */
     actions.addSeparator();
     actions.add(mItem = new JMenuItem("Reinstall Toolchain"));
     mItem.setToolTipText("Copies AVR Toolchain into Java Temporary Disk Space where it can be Executed");
     mItem.addActionListener(e -> reloadToolchain());
     menuBar.add(actions);
-    // Add Settings menu
+    /*
+     *    Settings menu
+     */
     JMenu settings = new JMenu("Settings");
     menuBar.add(settings);
     // Add "Tabs" Menu with submenu
     settings.add(codePane.getTabSizeMenu());
     settings.addSeparator();
-    // Add "Foze Size" Menu with submenu
+    // Add "Font Size" Menu with submenu
     settings.add(codePane.getFontSizeMenu());
     settings.addSeparator();
     JMenu tpiSettings = new JMenu("Serial Port");
@@ -873,7 +950,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     });
     portThread.start();
     JMenu icspProg = new JMenu("ISP Programmer");
-    icspProg.setToolTipText("Select ISP Programmer");
+    icspProg.setToolTipText("Select ISP Programmer - used to program ATTinyX4 and ATTinyX4 devices");
     try {
       ButtonGroup icspGroup = new ButtonGroup();
       Map<String,String> pgrmrs = Utility.toTreeMap(Utility.getResourceMap("icsp_programmers.props"));
@@ -904,6 +981,28 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       ex.printStackTrace();
     }
     settings.add(icspProg);
+    /*
+     *    Target Menu
+     */
+    targetMenu = new RadioMenu("Target");
+    ButtonGroup targetGroup = new ButtonGroup();
+    menuBar.add(targetMenu);
+    String libType = null;
+    for (String type : progProtocol.keySet()) {
+      ChipInfo info = progProtocol.get(type);
+      if (libType != null && !libType.equals(info.core)) {
+        targetMenu.addSeparator();
+      }
+      libType = info.core;
+      JRadioButtonMenuItem item = new JRadioButtonMenuItem(type);
+      item.setSelected("attiny10".equals(type));
+      targetMenu.add(item);
+      targetGroup.add(item);
+      item.addActionListener( ex -> {
+        avrChip = type;
+      });
+    }
+    avrChip = "attiny10";
     setJMenuBar(menuBar);
     // Add window close handler
     addWindowListener(new WindowAdapter() {
@@ -936,23 +1035,59 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     verifyToolchain();
   }
 
+  private void updateChip (String src) {
+    int idx = src.lastIndexOf("#pragma");
+    int end = src.indexOf('\n', idx);
+    String pragArea = src.substring(0, end + 1);
+    for (String line : pragArea.split("\n")) {
+      idx = line.indexOf("//");
+      if (idx >= 0) {
+        line = line.substring(0, idx).trim();
+      }
+      if (line.startsWith("#pragma")) {
+        line = line.substring(7).trim();
+        String[] parts = Utility.parse(line);
+        if (parts.length > 1 && "chip".equals(parts[0])) {
+          if (progProtocol.containsKey(parts[1])) {
+            avrChip = parts[1];
+            targetMenu.setSelected(avrChip);
+            targetMenu.setEnabled(false);
+            return;
+          }
+        }
+      }
+    }
+    // If "#pragma chip" not found, or value is invalid set avrChip to selected item in "Target" menu, if any
+    targetMenu.setEnabled(true);
+    avrChip = targetMenu.getSelected();
+  }
+
+  private String queryJPort (String send) throws Exception {
+    JPortSender sndr = new JPortSender(send, jPort, true);
+    return sndr.rsp;
+  }
+
   private void sendToJPort (String send) throws Exception {
-    new JPortSender(send, jPort);
+    new JPortSender(send, jPort, false);
   }
 
   private class JPortSender implements Runnable, JSSCPort.RXEvent {
-    private String            send;
+    private String            send, rsp ="";
     private JSSCPort          jPort;
     private int               timoutReset;
     private volatile int      timeout;
     private volatile int      setupState;
 
-    JPortSender (String send, JSSCPort jPort) throws Exception {
+    JPortSender (String send, JSSCPort jPort, boolean getResponse) throws Exception {
       this.send = send;
       this.jPort = jPort;
       timoutReset= this.timeout = 100;   // timeout is 10 seconds
+      Thread thrd = new Thread(this);
       if (jPort.open(this)) {
-        new Thread(this).start();
+        thrd.start();
+        if (getResponse) {
+          thrd.join();
+        }
       }
     }
 
@@ -972,6 +1107,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         if (cc == 0x1B) {
           timeout = 0;
           return;
+        } else {
+          rsp += (char) cc;
         }
       }
       timeout = timoutReset;
@@ -984,6 +1121,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
 
     public void run () {
       try {
+        // Send STK_LEAVE_PROGMODE ('Q') in case Optiboot is bootloader (fast exit)
+        jPort.sendString("Q\n");
         // Wait for bootloader to time out so it doesn't swallow command
         while (timeout > 0 && setupState < 2) {
           synchronized (this) {
@@ -1018,7 +1157,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     tags.put("VBS", prefs.getBoolean("developer_features", false) ? "-v" : "");
     tags.put("PROG", ispProgrammer);
     tags.put("TDIR", tmpDir);
-    ChipInfo chipInfo = progProtocol.get(chip != null ? chip.toLowerCase() : null);
+    ChipInfo chipInfo = progProtocol.get(avrChip != null ? avrChip.toLowerCase() : null);
     tags.put("CHIP", chipInfo != null ? chipInfo.part : "t85");
     tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
     boolean usesPort = "arduino".equals(ispProgrammer) || "buspirate".equals(ispProgrammer);
@@ -1031,7 +1170,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     return proc.waitFor();
   }
 
-  private ParmDialog.ParmItem[][] getFuseParms (int lFuse, int hFuse, int eFuse) {
+  private ParmDialog.ParmItem[][] getSPIFuseParms (int lFuse, int hFuse, int eFuse) {
     return new ParmDialog.ParmItem[][]{
     {
       new ParmDialog.ParmItem("CKDIV8{*[CKDIV8]*}",       !Utility.bit(lFuse, 7)),
@@ -1060,6 +1199,21 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 2)),
       new ParmDialog.ParmItem("*Not Used",                !Utility.bit(eFuse, 1)),
       new ParmDialog.ParmItem("SELFPRGEN{*[SELFPRGEN]*}", !Utility.bit(eFuse, 0)),
+    }
+    };
+  }
+
+  private ParmDialog.ParmItem[][] getTPIFuseParms (int fuse) {
+    return new ParmDialog.ParmItem[][]{
+    {
+      new ParmDialog.ParmItem("*Not Used",                !Utility.bit(fuse, 7)),
+      new ParmDialog.ParmItem("*Not Used",                !Utility.bit(fuse, 6)),
+      new ParmDialog.ParmItem("*Not Used",                !Utility.bit(fuse, 5)),
+      new ParmDialog.ParmItem("*Not Used",                !Utility.bit(fuse, 4)),
+      new ParmDialog.ParmItem("*Not Used",                !Utility.bit(fuse, 3)),
+      new ParmDialog.ParmItem("CKOUT{*[CKOUT]*}",         !Utility.bit(fuse, 2)),
+      new ParmDialog.ParmItem("WDTON{*[WDTON]*}",         !Utility.bit(fuse, 1)),
+      new ParmDialog.ParmItem("RSTDISBL{*[RSTDISBL]*}",   !Utility.bit(fuse, 0)),
     }
     };
   }
