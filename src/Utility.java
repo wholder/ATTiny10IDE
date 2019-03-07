@@ -55,14 +55,6 @@ class Utility {
     return buf.toString().trim();
   }
 
-  static String pad (String val, int len) {
-    StringBuilder buf = new StringBuilder(val);
-    while (buf.length() < len) {
-      buf.append(" ");
-    }
-    return buf.toString();
-  }
-
   static void saveFile (File file, String text) {
     try {
       FileOutputStream out = new FileOutputStream(file);
@@ -207,28 +199,35 @@ class Utility {
   }
 
   static void copyResourcesToDir (String base, String tmpDir) throws URISyntaxException, IOException {
+    java.nio.file.FileSystem fileSystem = null;
     if (base != null) {
-      File path = new File(tmpDir);
-      if (!path.exists()) {
-        path.mkdirs();
-      }
-      URL url = Utility.class.getResource(base);
-      if (url != null) {
-        URI uri = url.toURI();
-        Path myPath;
-        if (uri.getScheme().equals("jar")) {
-          java.nio.file.FileSystem fileSystem = FileSystems.newFileSystem(uri, Collections.emptyMap());
-          myPath = fileSystem.getPath("/");
-        } else {
-          myPath = Paths.get(uri);
+      try {
+        File path = new File(tmpDir);
+        if (!path.exists()) {
+          path.mkdirs();
         }
-        Stream<Path> walk = Files.walk(myPath, 1);
-        for (Iterator<Path> it = walk.iterator(); it.hasNext(); ) {
-          Path item = it.next();
-          String fName = item.getFileName().toString();
-          if (!fName.equals(base)) {
-            copyResourceToDir(base + fileSep + fName, tmpDir);
+        URL url = Utility.class.getResource(base);
+        if (url != null) {
+          URI uri = url.toURI();
+          Path myPath;
+          if (uri.getScheme().equals("jar")) {
+            fileSystem = FileSystems.newFileSystem(uri, Collections.emptyMap());
+            myPath = fileSystem.getPath("/" + base);
+          } else {
+            myPath = Paths.get(uri);
           }
+          Stream<Path> walk = Files.walk(myPath, 1);
+          for (Iterator<Path> it = walk.iterator(); it.hasNext(); ) {
+            Path item = it.next();
+            String fName = item.getFileName().toString();
+            if (!fName.equals(base)) {
+              copyResourceToDir(base + fileSep + fName, tmpDir);
+            }
+          }
+        }
+      } finally {
+        if (fileSystem != null) {
+          fileSystem.close();
         }
       }
     }
@@ -273,8 +272,6 @@ class Utility {
 
   /**
    * Adds path + filename to CRC32 crc
-   * @param path
-   * @param crc
    */
   private static void crcFilename (Path path, CRC32 crc) {
     String file = path.getFileName().toString();
@@ -323,32 +320,7 @@ class Utility {
     return hex[val & 0x0F];
   }
 
-  static String choose (String choice1, String choice2) {
-    return choice1 != null ? choice1 : choice2;
-  }
-
-  static Map<String,String> csvToMap (String csv) {
-    Map<String,String> map = new HashMap<>();
-    for (String item : csv.split(",")) {
-      String[] tmp = item.split(":");
-      map.put(tmp[0], tmp[1]);
-    }
-    return map;
-  }
-
   static boolean bit (int val, int bit) {
     return (val & (1 << bit)) != 0;
-  }
-
-  public static void main (String[] args) {
-    List<String> list = new ArrayList<>();
-    int jj = 1;
-    list.add("item " + jj++);
-    for (int ii = 0; ii < list.size(); ii++) {
-      System.out.println(list.get(ii));
-      if (list.size() < 10) {
-        list.add("item " + jj++);
-      }
-    }
   }
 }
