@@ -935,52 +935,42 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     // Add "Font Size" Menu with submenu
     settings.add(codePane.getFontSizeMenu());
     settings.addSeparator();
-    JMenu tpiSettings = new JMenu("Serial Port");
-    settings.add(tpiSettings);
-    settings.addSeparator();
-    Thread portThread = new Thread(() -> {
+
+      JMenu tpiSettings = new JMenu("Serial Port");
+      settings.add(tpiSettings);
+      settings.addSeparator();
       // Add "Port" and "Baud" Menus to MenuBar
+      jPort = new JSSCPort(prefs);
+      tpiSettings.add(jPort.getPortMenu());
+      tpiSettings.add(jPort.getBaudMenu());
+      JMenu icspProg = new JMenu("ISP Programmer");
+      icspProg.setToolTipText("Select ISP Programmer - used to program ATTinyX4 and ATTinyX4 devices");
       try {
-        jPort = new JSSCPort(prefs);
-        tpiSettings.add(jPort.getPortMenu());
-        tpiSettings.add(jPort.getBaudMenu());
+        ButtonGroup icspGroup = new ButtonGroup();
+        Map<String,String> pgrmrs = Utility.getOrderedResourceMap("icsp_programmers.props");
+        for (String key : pgrmrs.keySet()) {
+          Map<String,String> json = Utility.parseJSON(pgrmrs.get(key));
+          String val = json.get("name");
+          String toolTip = json.get("desc");
+          JRadioButtonMenuItem item = new JRadioButtonMenuItem(val);
+          icspGroup.add(item);
+          if (toolTip != null) {
+            item.setToolTipText("<html>" + toolTip + "</html>");
+          }
+          icspProg.add(item);
+          if (ispProgrammer.equals(key)) {
+            item.setSelected(true);
+          }
+          item.addActionListener(ex -> {
+            prefs.put("icsp_programmer", ispProgrammer = key);
+            //System.out.println(key);
+          });
+        }
       } catch (Exception ex) {
         ex.printStackTrace();
       }
-    });
-    portThread.start();
-    JMenu icspProg = new JMenu("ISP Programmer");
-    icspProg.setToolTipText("Select ISP Programmer - used to program ATTinyX4 and ATTinyX4 devices");
-    try {
-      ButtonGroup icspGroup = new ButtonGroup();
-      Map<String,String> pgrmrs = Utility.toTreeMap(Utility.getResourceMap("icsp_programmers.props"));
-      for (String key : pgrmrs.keySet()) {
-        String val = pgrmrs.get(key);
-        int idxs = val.indexOf("{");
-        int idxe = val.indexOf("}");
-        String toolTip = null;
-        if (idxs >= 0 && idxe > idxs) {
-          toolTip = val.substring(idxs + 1, idxe);
-          val = val.substring(0, idxs) + val.substring(idxe + 1);
-        }
-        JRadioButtonMenuItem item = new JRadioButtonMenuItem(val);
-        icspGroup.add(item);
-        if (toolTip != null) {
-          item.setToolTipText("<html>" + toolTip + "</html>");
-        }
-        icspProg.add(item);
-        if (ispProgrammer.equals(key)) {
-          item.setSelected(true);
-        }
-        item.addActionListener(ex -> {
-          prefs.put("icsp_programmer", ispProgrammer = key);
-          //System.out.println(key);
-        });
-      }
-    } catch (Exception ex) {
-      ex.printStackTrace();
-    }
-    settings.add(icspProg);
+      settings.add(icspProg);
+
     /*
      *    Target Menu
      */
@@ -990,10 +980,10 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     String libType = null;
     for (String type : progProtocol.keySet()) {
       ChipInfo info = progProtocol.get(type);
-      if (libType != null && !libType.equals(info.core)) {
+      if (libType != null && !libType.equals(info.variant)) {
         targetMenu.addSeparator();
       }
-      libType = info.core;
+      libType = info.variant;
       JRadioButtonMenuItem item = new JRadioButtonMenuItem(type);
       item.setSelected("attiny10".equals(type));
       targetMenu.add(item);
@@ -1138,6 +1128,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             ex.printStackTrace();
           }
         }
+
         timeout = timoutReset;
         jPort.sendString(send + '*');
         while (timeout > 0) {
@@ -1244,6 +1235,45 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     }
   }
 
+  static class ProgressBar extends JFrame {
+    private JDialog       frame;
+    private JProgressBar  progress;
+    private JTextArea     txt;
+
+    ProgressBar (JFrame comp, String msg) {
+      frame = new JDialog(comp);
+      frame.setUndecorated(true);
+      JPanel pnl = new JPanel(new BorderLayout());
+      pnl.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+      frame.add(pnl, BorderLayout.CENTER);
+      pnl.add(progress = new JProgressBar(), BorderLayout.NORTH);
+      txt = new JTextArea(msg);
+      txt.setEditable(false);
+      pnl.add(txt, BorderLayout.SOUTH);
+      Rectangle loc = comp.getBounds();
+      frame.pack();
+      frame.setLocation(loc.x + loc.width / 2 - 150, loc.y + loc.height / 2 - 150);
+      frame.setVisible(true);
+    }
+
+    void setValue (int value) {
+      progress.setValue(value);
+    }
+
+    void setMaximum (int value) {
+      progress.setMaximum(value);
+    }
+
+    void close () {
+      frame.setVisible(false);
+      frame.dispose();
+    }
+  }
+
+  /**
+   * Very all the files in the toolchain are intact by computing a CRC2 value from the tree
+   * of directory and file names.  Note: the CRC is not based on the content of the files.
+   */
   private void verifyToolchain () {
     boolean reloadTools = prefs.getBoolean("reload_toolchain", false);
     if (!reloadTools) {
@@ -1282,46 +1312,28 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         new ToolchainLoader(this, "toolchains/L64Toolchain.zip", tmpExe);
       }
       prefs.remove("reload_toolchain");
+      // Append FTDI->TPI programmer info to avrdude.conf
+      try {
+        String conf = Utility.getFile(tmpExe + "etc/avrdude.conf");
+        StringBuilder buf = new StringBuilder(conf);
+        buf.append("\nprogrammer\n" +
+            "  id    = \"dasaftdi\";\n" +
+            "  desc  = \"FTDI serial port banging, reset=rts sck=dtr mosi=txd miso=cts\";\n" +
+            "  type  = serbb;\n" +
+            "  reset = ~7;\n" +
+            "  sck   = ~4;\n" +
+            "  mosi  = ~3;\n" +
+            "  miso  = ~8;\n" +
+            ";\n");
+        Utility.saveFile(tmpExe + "etc/avrdude.conf", buf.toString());
+      } catch (Exception ex) {
+        ex.printStackTrace();
+      }
       prefs.putLong("toolchain-crc", Utility.crcTree(tmpExe));
     } catch (Exception ex) {
       ex.printStackTrace();
       selectTab(Tab.LIST);
       listPane.setText("Unable to Install Toolchain:\n" + ex.toString());
-    }
-  }
-
-  static class ProgressBar extends JFrame {
-    private JDialog       frame;
-    private JProgressBar  progress;
-    private JTextArea     txt;
-
-    ProgressBar (JFrame comp, String msg) {
-      frame = new JDialog(comp);
-      frame.setUndecorated(true);
-      JPanel pnl = new JPanel(new BorderLayout());
-      pnl.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-      frame.add(pnl, BorderLayout.CENTER);
-      pnl.add(progress = new JProgressBar(), BorderLayout.NORTH);
-      txt = new JTextArea(msg);
-      txt.setEditable(false);
-      pnl.add(txt, BorderLayout.SOUTH);
-      Rectangle loc = comp.getBounds();
-      frame.pack();
-      frame.setLocation(loc.x + loc.width / 2 - 150, loc.y + loc.height / 2 - 150);
-      frame.setVisible(true);
-    }
-
-    void setValue (int value) {
-      progress.setValue(value);
-    }
-
-    void setMaximum (int value) {
-      progress.setMaximum(value);
-    }
-
-    void close () {
-      frame.setVisible(false);
-      frame.dispose();
     }
   }
 

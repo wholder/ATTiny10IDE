@@ -48,7 +48,7 @@ boolean             hv2Mode = false;
 void setup () {
   // Check for HV Progammerw (HV1_DETECT or HV2_DETECT pin is LOW)
   pinMode(HV1_DETECT, INPUT_PULLUP);
-  pinMode(HV1_DETECT, INPUT_PULLUP);
+  pinMode(HV2_DETECT, INPUT_PULLUP);
   delay(10);
   hv1Mode = digitalRead(HV1_DETECT) == LOW;
   hv2Mode = digitalRead(HV2_DETECT) == LOW;
@@ -71,7 +71,11 @@ void setup () {
   } else {
     pinMode(GND, OUTPUT);         // Connect GND
     digitalWrite(GND, LOW);       // GND Always Low
-    printInstructions();
+    if (sizeof(program) > 0) {
+      printInstructions();
+    } else {
+      Serial.print("\x06\x06");   // Send ACK ACK sequence tp signal ready
+    }
   }
 }
 
@@ -726,6 +730,15 @@ void loop () {
           digitalWrite(VCC, LOW);       // VCC off
           pinMode(VCC, INPUT);
           Serial.println(F("VCC off"));
+          break;
+        case 'T':
+          if (hv1Mode) {
+            Serial.print(F("hv1Mode\n"));
+          } else if (hv2Mode) {
+            Serial.print(F("hv2Mode\n"));
+          } else {
+            Serial.print(F("Non HV\n"));
+          }
           break;
         case '*':
           Serial.write(0x1B);           // Respond with ESC code

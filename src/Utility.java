@@ -3,6 +3,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLDecoder;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -121,6 +122,28 @@ class Utility {
     return prop;
   }
 
+  static  Map<String,String> getOrderedResourceMap (String file) throws IOException {
+    Map<String,String> map = new LinkedHashMap<>();
+    InputStream fis = util.getClass().getResourceAsStream("/" + file);
+    if (fis != null) {
+      byte[] data = new byte[fis.available()];
+      fis.read(data);
+      fis.close();
+      StringTokenizer tok = new StringTokenizer(new String(data, StandardCharsets.UTF_8), "\n");
+      while (tok.hasMoreElements()) {
+        String line = tok.nextToken();
+        String[] parts = line.split(":");
+        if (parts.length == 2) {
+          map.put(parts[0].trim(), parts[1].trim());
+        }
+      }
+
+    } else {
+      throw new IllegalStateException("getOrderedResourceMap() " + file + " unable to read");
+    }
+    return map;
+  }
+
   static Map<String,String> toTreeMap (Properties props) {
     Map<String,String> map = new TreeMap<>();
     for (final String name: props.stringPropertyNames()) {
@@ -183,7 +206,7 @@ class Utility {
     }).collect(Collectors.joining());
   }
 
-  static void copyResourceToDir (String fName, String tmpDir) throws IOException {
+  private static void copyResourceToDir (String fName, String tmpDir) throws IOException {
     InputStream fis = util.getClass().getResourceAsStream(fName);
     if (fis != null) {
       byte[] data = new byte[fis.available()];
@@ -322,5 +345,28 @@ class Utility {
 
   static boolean bit (int val, int bit) {
     return (val & (1 << bit)) != 0;
+  }
+
+  /**
+   * JSON-like parser for non nested JSON Map
+   * @param json JSON-like string, such as {fred=\"test\", alpha=\"123\"}"
+   * @return Map of key/value pairs
+   */
+  static Map<String,String> parseJSON (String json) {
+    Map<String,String> out = new HashMap<>();
+    int start = json.indexOf("{");
+    int end = json.indexOf("}", start + 1);
+    if (start >= 0 && end >= start) {
+      String tmp = json.substring(start + 1, end);
+      String[] parts = tmp.split(",");
+      for (String item : parts) {
+        String[] pair = item.split("=");
+        if (pair.length == 2) {
+          String val = pair[1].replace('\"', ' ').trim();
+          out.put(pair[0].trim(), val);
+        }
+      }
+    }
+    return out;
   }
 }

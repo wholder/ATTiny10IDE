@@ -56,7 +56,7 @@ public class JSSCPort implements SerialPortEventListener {
     baudRates.put("256000", SerialPort.BAUDRATE_256000);
   }
 
-  public JSSCPort (Preferences prefs) throws SerialPortException {
+  public JSSCPort (Preferences prefs) {
     this.prefs = prefs;
     // Determine OS Type
     switch (SerialNativeInterface.getOsType()) {
