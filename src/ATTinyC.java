@@ -1421,40 +1421,44 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         try {
           Path file = Files.createTempFile(null, ".zip");
           InputStream stream = ATTinyC.class.getClassLoader().getResourceAsStream(srcZip);
-          Files.copy(stream, file, StandardCopyOption.REPLACE_EXISTING);
-          File srcFile = file.toFile();
-          srcFile.deleteOnExit();
-          zip = new ZipFile(srcFile);
-          int entryCount = 0, lastEntryCount = 0;
-          setMaximum(zip.size());
-          Enumeration entries = zip.entries();
-          while (entries.hasMoreElements()) {
-            ZipEntry entry = (ZipEntry) entries.nextElement();
-            entryCount++;
-            if (entryCount - lastEntryCount > 100) {
-              setValue(lastEntryCount = entryCount);
-            }
-            String src = entry.getName();
-            if (src.contains("MACOSX")) {
-              continue;
-            }
-            File dstFile = new File(dst, src);
-            File dstDir = dstFile.getParentFile();
-            if (!dstDir.exists()) {
-              dstDir.mkdirs();
-            }
-            if (entry.isDirectory()) {
-              dstFile.mkdirs();
-            } else {
-              try (ReadableByteChannel srcChan = Channels.newChannel(zip.getInputStream(entry));
-                   FileChannel dstChan = new FileOutputStream(dstFile).getChannel()) {
-                dstChan.transferFrom(srcChan, 0, entry.getSize());
+          if (stream != null) {
+            Files.copy(stream, file, StandardCopyOption.REPLACE_EXISTING);
+            File srcFile = file.toFile();
+            srcFile.deleteOnExit();
+            zip = new ZipFile(srcFile);
+            int entryCount = 0, lastEntryCount = 0;
+            setMaximum(zip.size());
+            Enumeration entries = zip.entries();
+            while (entries.hasMoreElements()) {
+              ZipEntry entry = (ZipEntry) entries.nextElement();
+              entryCount++;
+              if (entryCount - lastEntryCount > 100) {
+                setValue(lastEntryCount = entryCount);
               }
-              // Must set permissions after file is written or it doesn't take...
-              if (!dstFile.getName().contains(".")) {
-                dstFile.setExecutable(true);
+              String src = entry.getName();
+              if (src.contains("MACOSX")) {
+                continue;
+              }
+              File dstFile = new File(dst, src);
+              File dstDir = dstFile.getParentFile();
+              if (!dstDir.exists()) {
+                dstDir.mkdirs();
+              }
+              if (entry.isDirectory()) {
+                dstFile.mkdirs();
+              } else {
+                try (ReadableByteChannel srcChan = Channels.newChannel(zip.getInputStream(entry));
+                     FileChannel dstChan = new FileOutputStream(dstFile).getChannel()) {
+                  dstChan.transferFrom(srcChan, 0, entry.getSize());
+                }
+                // Must set permissions after file is written or it doesn't take...
+                if (!dstFile.getName().contains(".")) {
+                  dstFile.setExecutable(true);
+                }
               }
             }
+          } else {
+            showErrorDialog("Unable to open " + srcZip + file);
           }
         } finally {
           if (zip != null) {

@@ -84,7 +84,7 @@ public class ProgrammerDialog extends JDialog {
     setTitle("Programmer");
     // Load programmer types file
     progList = new LinkedHashMap<>();
-    InputStream fis = ProgrammerDialog.class.getClassLoader().getResourceAsStream("/icsp_programmers.props");
+    InputStream fis = ProgrammerDialog.class.getClassLoader().getResourceAsStream("icsp_programmers.props");
     if (fis != null) {
       byte[] data = new byte[fis.available()];
       fis.read(data);
@@ -99,7 +99,7 @@ public class ProgrammerDialog extends JDialog {
         }
       }
     } else {
-      throw new IllegalStateException("getOrderedMapOfMaps() unable to read icsp_programmers.props");
+      throw new IllegalStateException("ProgrammerDialog() unable to read icsp_programmers.props");
     }
     // Setup GUI
     setLayout(new BorderLayout(1, 1));
