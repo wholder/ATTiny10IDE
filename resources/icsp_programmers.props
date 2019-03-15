@@ -1,8 +1,51 @@
-avrispmkII:   {con="usb", name="AVR ISP mkII", desc="Uses AVR ISP mkII, or compatible as ISP programmer"}
-usbtiny:      {con="usb", name="USBtinyISP", desc="Uses ATtiny 2313 as ISP programmer"}
-usbasp:       {con="usb", name="USBasp", desc="Uses ATMega88 or ATMega8  as ISP programmer"}
-arduino:      {con="serial", name="Arduino as ISP", desc="Uses ArduinoISP sketch running on an Arduino as ISP Programmer"}
-buspirate:    {con="serial", name="BusPirate as ISP", desc="Bus Pirate V3 need Firmware v5.10 or later<br>Bus Pirate V4 need Firmware v6.3-r2151 or later"}
-jtag3isp:     {con="usb", name="JTAGICE3 (ISP mode)"}
-jtag3:        {con="usb", name="JTAGICE3 (JTAG mode)"}
-atmelice_isp: {con="usb", name="Atmel-ICE (AVR)"}
+Arduino TPI: {
+    programmer="arduinotpi",
+    connection="serial",
+    rates="115200",
+    protocols="TPI",
+    desc="Uses ATTiny10GeneratedProgrammer sketch running on an Arduino as TPI Programmer",
+    image="arduinotpi.jpg"
+    }
+Arduino ISP: {
+    programmer="arduinoisp",
+    connection="avrdude;serial",
+    rates="19200;57600;115200",
+    protocols="ISP",
+    desc="Uses ArduinoISP sketch running on an Arduino as ISP Programmer",
+    image="arduinoisp.jpg"
+    }
+AVR ISP mkII: {
+    programmer="avrispmkII",
+    connection="avrdude",
+    protocols="ISP;TPI",
+    desc="Uses AVR ISP mkII, or compatible as ISP, or TPI programmer",
+    image="avrispmkII.jpg",
+    }
+USBtinyISP: {
+    programmer="usbtiny",
+    connection="avrdude",
+    protocols="ISP",
+    desc="Uses ATtiny 2313 as ISP programmer",
+    image="usbtiny.jpg"
+    }
+USBasp: {
+    programmer="usbasp",
+    connection="avrdude",
+    protocols="ISP",
+    desc="Uses ATMega88 or ATMega8  as ISP programmer",
+    image="usbasp.jpg",
+    }
+BusPirate ISP: {
+    programmer="buspirate",
+    connection="avrdude",
+    protocols="ISP",
+    desc="Uses Bus Pirate as ISP Programmer<b>Bus Pirate V3 need Firmware v5.10 or later<br>Bus Pirate V4 need Firmware v6.3-r2151 or later",
+    image="buspirate.jpg"
+    }
+Atmel-ICE (AVR): {
+    programmer="atmelice_isp",
+    connection="avrdude",
+    protocols="ISP;TPI",
+    desc="Supports both ISP and TPI protocols",
+    image="atmel-ice.jpg"
+    }

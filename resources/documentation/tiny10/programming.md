@@ -21,12 +21,12 @@ Here are the steps you can follow to program an ATTiny10 using this method:
 You can also use this Sketch to program as many ATTiny10s as needed with the code you generated it from in ATTiny10IDE and you can also use it as a general-purpose ATTiny10 programmer to upload and program other code, like this:
 
  1. First "Quit" the Arduino IDE so ATTiny10IDE will have access to the Serial Port on the Arduino running the Sketch.
- 2. Start ATTiny10IDE and set "**`Settings->Serial Port->Baud Rate`**" to 115200 and "**`Settings->Serial Port->Port`**" to select the Arduino running the Sketch.
+ 2. Start ATTiny10IDE and use "**`Settings->Programmer`**" to open the Programmer dialog and select the "**`Arduino TPI`**" option.
  3. Open, or write the source code you want to compile and program into the ATtiny10.
  4. Select "**`Actions->Build`**" to compile. or assemble the code.
  5. Connect the Arduino to the ATTiny10 using the same connections shown above.
  5. Select "**`Actions->Read Device Signature`**" to verify the ATTiny10 is properly connected.
- 6. Select "**`Actions->Program Flash and Fuse(s)`**" to upload and program the code into the ATtiny10.
+ 6. Select "**`Actions->Program Flash and Fuse(s)`**" to upload and program the code and update the fuse settings into the ATtiny10.
 
 <p align="center"><img src="images/Arduino%20Programmer.jpg" width="600" height="440"></p>
 

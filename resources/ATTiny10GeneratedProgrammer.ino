@@ -80,6 +80,10 @@ void setup () {
 }
 
 void enablePins () {
+  if (hv1Mode || hv2Mode) {
+    digitalWrite(RELAY, HIGH);    // Chip in Program mode (Relay On)
+    delay(200);
+  }
   pinMode(VCC, OUTPUT);           // Connect VCC
   digitalWrite(VCC, LOW);         // VCC off
   pinMode(TPICLK, OUTPUT);        // Connect TPICLK
@@ -87,9 +91,7 @@ void enablePins () {
   pinMode(TPIDAT, INPUT);         // Connect TPIDAT
   digitalWrite(TPIDAT, HIGH);     // Enable pullup
   delay(10);
-  if (hv1Mode || hv2Mode) {
-    digitalWrite(RELAY, HIGH);    // Chip in Program mode (Relay On)
-  } else {
+  if (!hv1Mode && !hv2Mode) {
     pinMode(RESET, OUTPUT);       // Connect RESET
     digitalWrite(RESET, HIGH);    // RESET Off
   }
@@ -97,12 +99,12 @@ void enablePins () {
 }
 
 void disablePins () {
-  pinMode(VCC, INPUT);          // Disconnect VCC
   pinMode(TPICLK, INPUT);       // Disconnect TPICLK
   pinMode(TPIDAT, INPUT);       // Disconnect TPIDAT
-  digitalWrite(VCC, LOW);       // No pull up
+  pinMode(VCC, INPUT);          // Disconnect VCC
   digitalWrite(TPICLK, LOW);    // No pull up
   digitalWrite(TPIDAT, LOW);    // No pull up
+  digitalWrite(VCC, LOW);       // No pull up
   if (hv1Mode || hv2Mode) {
     digitalWrite(RELAY, LOW);   // Chip in Emulate mode
   } else {

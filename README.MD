@@ -4,7 +4,21 @@
 # ATTiny10IDE (for 64 bit macOS, Windows & Linux)
 ATTiny10IDE is a simple, GNU-based IDE I originally wrote to simplify writing code for the ATTiny10 Series Microcontrollers using C. C++ or Assembly language.  This new version is a greatly expanded and updated version I started working on in 2014.  [See this article for some additional details on how this project started](https://sites.google.com/site/wayneholder/attiny10-c-ide-and-improved-device-programmer).  For this new release, I've added support for the ATTiny25/45/85 and ATTiny24/44/84 series of microcontrollers, as well support for programming them using an ICSP Programmer.  And, there's also an experimental feature for automatic generation of function prototypes.
 
-If you just want to try out the program, you don't need to download and compile the source code, as I try to maintain a pre-built, executable JAR file in the [out/artifacts/ATTiny10IDE_jar](https://github.com/wholder/ATTiny10IDE/tree/master/out/artifacts/ATTiny10IDE_jar) folder from which you can download and run ATTiny10IDE as long as you have Java installed on your system.  On a Mac, simply double click the ATTiny10IDE.jar file to run it once you've downloaded it, although you'll probably have to right click and select "Open" the  first time you run ATTiny10IDE due to the Mac OS X security check and the fact that I'm currently unable to digitally sign the JAR file.  You should also be able to double click and run using Windows, but some versions of Windows may require you to [enable this ability](https://www.addictivetips.com/windows-tips/run-a-jar-file-on-windows/) first.  You'll need to give the .jar file RUN permission to execute on Linux and using a USB-based device programmer, such as the AVRISP MkII, may also require you to [create an install a rules file](https://stackoverflow.com/questions/5412727/avrisp-mkii-doesnt-work-with-avrdude-on-linux).
+If you just want to try out the program, you don't need to download and compile the source code, as I maintain a pre-built, executable JAR file in the [out/artifacts/ATTiny10IDE_jar](https://github.com/wholder/ATTiny10IDE/tree/master/out/artifacts/ATTiny10IDE_jar) folder from which you can download and run ATTiny10IDE as long as you have Java installed on your system.  On a Mac, simply double click the ATTiny10IDE.jar file to run it once you've downloaded it, although you'll probably have to right click and select "Open" the  first time you run ATTiny10IDE due to the Mac OS X security check and the fact that I'm currently unable to digitally sign the JAR file.  You should also be able to double click and run using Windows, but some versions of Windows may require you to [enable this ability](https://www.addictivetips.com/windows-tips/run-a-jar-file-on-windows/) first.  You'll need to give the .jar file RUN permission to execute on Linux and using a USB-based device programmer, such as the AVRISP MkII, may also require you to [create an install a rules file](https://stackoverflow.com/questions/5412727/avrisp-mkii-doesnt-work-with-avrdude-on-linux).
+
+## Recent Updates
+
+ - New, compact toolchains for Mac, Windows & Linux extracted and condensed from Arduino 1.8.8
+ - Reorganized Action menu and added Target menu
+ - Switched TinyX5 and TinyX4 cores and libs to [ATTinyCore by Spence Konde](https://github.com/SpenceKonde/ATTinyCore)
+ - Now uses .d files to determine dependencies for included library files
+ - New Programmer selection dialog replaces menu-based selection and configuration
+ - Fixed a regression that prevented Windows version from working properly
+ 
+## Help Requested
+
+So far this is just a one man project and I struggle at times to do adequate testing, especially on Windows and Linux, when I release a nw version. So, if anyone spots a problem, or has a question or a sugegstion, [please post an issue](https://github.com/wholder/ATTiny10IDE/issues) so I can investigate.  You can also email me at questions4wayne at gmail dot com.
+
 ## Requirements
 I suggest using Java 8 JRE or JDK, or later for ATTiny10IDE, but the code also seems to run under the OpenJDK Java on Linux.  Note: I wrote ATTiny10IDE on a Mac Pro using the _Community_ version of [IntelliJ IDEA from JetBrains](https://www.jetbrains.com/idea/) and OS X is the only environment where I have extensively tested and used ATTiny10IDE .  I've included GNU/AVR toolchains for Mac and 64 bit Windows and 64 bit Linux, but have not extensively tested the code under Windows or Linux.  Feel free to report any issues you discover.  I'll do my best, when time permits, to investigate them, but I cannot guarantee fixes, timely or otherwise.
 ## Using ATTiny10IDE
@@ -36,7 +50,7 @@ Here are the steps you can follow to program an ATTiny10 using this method:
 You can use this Sketch to program as many ATTiny10s as needed, but you can also use it as a general-purpose ATTiny10 programmer to upload and program other code, like this:
 
  1. First "Quit" the Arduino IDE so ATTiny10IDE will have access to the Serial Port on the Arduino running the Sketch.
- 2. Start ATTiny10IDE and set "**`Settings->Serial Port->Baud Rate`**" to 115200 and "**`Settings->Serial Port->Port`**" to select the Arduino running the Sketch.
+ 2. Start ATTiny10IDE and use "**`Settings->Programmer`**" to open the Programmer dialog and select the "Arduino TPI" option.
  3. Open, or write the source code you want to compile and program into the ATtiny10.
  4. Select "**`Actions->Build`**" to compile. or assemble the code.
  5. Connect the Arduino to the ATTiny10 using the same connections shown above.
@@ -146,13 +160,6 @@ ATTiny10IDE currently supports using the ATTiny25/45/85 and ATTiny24/44/84 using
 
 Notice the use of `#pragma` statements to select the chip type (`attiny85`) as well as the values for the fuses.  In addition, the `define` pragma allows you to pass in values to the compiler to enable, or disable certain features of the Arduino-compatible library code.
 
-## Recent Updates
-
- - New toolchains for Mac, Windows & Linux extracted and condensed from Arduino 1.8.8
- - Reorganized Action menu and added Target menu
- - Switched TinyX5 and TinyX4 cores and libs to [ATTinyCore by Spence Konde](https://github.com/SpenceKonde/ATTinyCore)
- - Now uses .d files to determine dependencies for included library files
-
 ## Credit and Thanks
 
 This project would have been much harder and much less cool without help from the following open source projects, or freely available software.
@@ -162,6 +169,7 @@ This project would have been much harder and much less cool without help from th
 - [IntelliJ IDEA from JetBrains](https://www.jetbrains.com/idea/) (my favorite development environment for Java coding. Thanks JetBrains!)
 - [ANTLR version 4.7.1](http://www.antlr.org) - ALTLRv4 was used to generate the parser for the new (experimental) automatic prototype type generation feature.
 - [CPP14 Antlr Grammar](https://github.com/antlr/grammars-v4/blob/master/cpp/CPP14.g4) - CPP14 was used as the base, C++ grammer for the automatic prototype type generation feature.
+- Bus Pirate photo by [Tylerl at English Wikipedia, CC BY 3.0](https://commons.wikimedia.org/w/index.php?curid=57110132)
 
 ## MIT License
 

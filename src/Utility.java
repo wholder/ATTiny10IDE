@@ -3,7 +3,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLDecoder;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -19,8 +18,6 @@ import java.util.zip.CRC32;
 class Utility {
   private static final String   StartMarker = "//:Begin Embedded Markdown Data (do not edit)";
   private static final String   EndMarker = "\n//:End Embedded Markdown Data";
-  private static final String   fileSep =  System.getProperty("file.separator");
-  private static Utility   util = new Utility();
   private static char[]    hex = {'0', '1', '2', '3', '4', '5', '6', '7',
                                   '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
@@ -83,7 +80,7 @@ class Utility {
   static String getFile (String file) throws IOException {
     InputStream fis;
     if (file.startsWith("res:")) {
-      fis = util.getClass().getResourceAsStream(file.substring(4));
+      fis = Utility.class.getClassLoader().getResourceAsStream(file.substring(4));
     } else {
       fis = new FileInputStream(file);
     }
@@ -115,41 +112,11 @@ class Utility {
   }
 
   static Properties getResourceMap (String file) throws IOException {
-    InputStream fis = util.getClass().getResourceAsStream("/" + file);
+    InputStream fis = Utility.class.getClassLoader().getResourceAsStream(file);
     Properties prop = new Properties();
     prop.load(fis);
     fis.close();
     return prop;
-  }
-
-  static  Map<String,String> getOrderedResourceMap (String file) throws IOException {
-    Map<String,String> map = new LinkedHashMap<>();
-    InputStream fis = util.getClass().getResourceAsStream("/" + file);
-    if (fis != null) {
-      byte[] data = new byte[fis.available()];
-      fis.read(data);
-      fis.close();
-      StringTokenizer tok = new StringTokenizer(new String(data, StandardCharsets.UTF_8), "\n");
-      while (tok.hasMoreElements()) {
-        String line = tok.nextToken();
-        String[] parts = line.split(":");
-        if (parts.length == 2) {
-          map.put(parts[0].trim(), parts[1].trim());
-        }
-      }
-
-    } else {
-      throw new IllegalStateException("getOrderedResourceMap() " + file + " unable to read");
-    }
-    return map;
-  }
-
-  static Map<String,String> toTreeMap (Properties props) {
-    Map<String,String> map = new TreeMap<>();
-    for (final String name: props.stringPropertyNames()) {
-      map.put(name, props.getProperty(name));
-    }
-    return map;
   }
 
   static String replaceTags (String src, Map tags) {
@@ -207,7 +174,7 @@ class Utility {
   }
 
   private static void copyResourceToDir (String fName, String tmpDir) throws IOException {
-    InputStream fis = util.getClass().getResourceAsStream(fName);
+    InputStream fis = Utility.class.getClassLoader().getResourceAsStream(fName);
     if (fis != null) {
       byte[] data = new byte[fis.available()];
       fis.read(data);
@@ -217,7 +184,7 @@ class Utility {
       fOut.write(data);
       fOut.close();
     } else {
-      throw new IllegalStateException("copyResourceToDir() " + fName + " unable to copy");
+      throw new IllegalStateException("copyResourceToDir('" + fName + "', '" + tmpDir + "') " + " unable to copy");
     }
   }
 
@@ -244,7 +211,7 @@ class Utility {
             Path item = it.next();
             String fName = item.getFileName().toString();
             if (!fName.equals(base)) {
-              copyResourceToDir(base + fileSep + fName, tmpDir);
+              copyResourceToDir(base + "/" + fName, tmpDir);
             }
           }
         }
@@ -323,7 +290,7 @@ class Utility {
   static long crcZipfile (String srcZip) {
     CRC32 crc = new CRC32();
     try {
-      InputStream in = util.getClass().getResourceAsStream(srcZip);
+      InputStream in = Utility.class.getClassLoader().getResourceAsStream(srcZip);
       int size = in.available();
       byte[] data = new byte[size];
       in.read(data);

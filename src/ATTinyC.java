@@ -58,8 +58,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private boolean                   directHex, compiled, codeDirty;
   private File                      cFile;
   private transient Preferences     prefs = Preferences.userRoot().node(this.getClass().getName());
-  private String                    ispProgrammer = prefs.get("icsp_programmer", "avrispmkII");
-  private transient JSSCPort        jPort;
   private Map<String, String>       compileMap;
   private static Map<String,String> sigLookup = new HashMap<>();
 
@@ -390,9 +388,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.setAccelerator(QUIT_KEY);
     mItem.addActionListener(e -> {
       if (!codeDirty  ||  discardChanges()) {
-        if (jPort.isOpen()) {
-          jPort.close();
-        }
         System.exit(0);
       }
     });
@@ -557,82 +552,85 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.addActionListener(e -> {
       if (avrChip != null) {
         ChipInfo info = progProtocol.get(avrChip);
-        switch (info.prog) {
-          case "TPI":
+        if ("TPI".equals(info.prog) && isSerialProgrammer() && supportsTPI()) {
+          // Program flash using ATTiny10GeneratedProgrammer sketch as TPI-based programmer
+          try {
+            if (canProgram()) {
+              String hex = hexPane.getText();
+              selectTab(Tab.PROG);
+              progPane.setText("Sending Code for: " + cFile.getName() + "\n");
+              sendToJPort("\nD\n" + hex + "\n");
+            }
+          } catch (Exception ex) {
+            showErrorDialog(ex.getMessage());
+          }
+        } else if ("TPI".equals(info.prog) && isAvrdudeProgrammer() && supportsTPI() ||
+                   "ISP".equals(info.prog) && isAvrdudeProgrammer() && supportsISP()) {
+          // Program flash using AVRDUDE jusing either TPI or ISP protocols
+          selectTab(Tab.PROG);
+          progPane.setText("");
+          Thread tt = new Thread(() -> {
             try {
               if (canProgram()) {
+                // If all fuses are defined in #pragma statements, verify and program, as needed
+                if (compileMap.containsKey("PRAGMA.LFUSE") && compileMap.containsKey("PRAGMA.HFUSE") &&
+                    compileMap.containsKey("PRAGMA.EFUSE")) {
+                  // Read current fuse settings from chip
+                  Map<String, String> tags = new HashMap<>();
+                  int retVal = callAvrdude("-U lfuse:r:*[TDIR]*lfuse.hex:h -U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
+                  if (retVal != 0) {
+                    showErrorDialog("Error Verifying Fuse setting with " + prefs.get("programmer.name", null));
+                    return;
+                  }
+                  int[] pFuses = {
+                      Integer.decode(compileMap.get("PRAGMA.LFUSE")),
+                      Integer.decode(compileMap.get("PRAGMA.HFUSE")),
+                      Integer.decode(compileMap.get("PRAGMA.EFUSE"))
+                  };
+                  int[] cFuses = {
+                      Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*lfuse.hex", tags)).trim()),
+                      Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*hfuse.hex", tags)).trim()),
+                      Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*efuse.hex", tags)).trim())
+                  };
+                  String[] tabs = {"LFUSE", "HFUSE", "EFUSE"};
+                  for (int ii = 0; ii < tabs.length; ii++) {
+                    int pFuse = pFuses[ii];
+                    int cFuse = cFuses[ii];
+                    if (pFuse != cFuse) {
+                      // Update fuse value
+                      tags.put("FUSE", tabs[ii].toLowerCase());
+                      tags.put("FVAL", "0x" + Integer.toHexString(pFuse).toUpperCase());
+                      retVal = callAvrdude("-U *[FUSE]*:w:*[FVAL]*:m", tags);
+                      if (retVal != 0) {
+                        showErrorDialog("Error Writing Fuses with " + prefs.get("programmer.name", null));
+                        return;
+                      }
+                    } else {
+                      progPane.append("Fuse " + tabs[ii].toLowerCase() + " already set correctly, so left unchanged\n");
+                    }
+                  }
+                } else {
+                  progPane.append("Fuses not programmed\n");
+                }
+                // Copy contents of "hex" pane to temp file with .hex extension
                 String hex = hexPane.getText();
-                selectTab(Tab.PROG);
-                progPane.setText("Sending Code for: " + cFile.getName() + "\n");
-                sendToJPort("\nD\n" + hex + "\n");
+                FileOutputStream fOut = new FileOutputStream(tmpDir + "code.hex");
+                fOut.write(hex.getBytes(StandardCharsets.UTF_8));
+                fOut.close();
+                // Use AVRDUDE to program chip
+                Map<String, String> tags = new HashMap<>();
+                int retVal = callAvrdude("-U flash:w:*[TDIR]*code.hex", tags);
+                if (retVal != 0) {
+                  showErrorDialog("Error Programming Device Signature with " + prefs.get("programmer.name", null));
+                }
               }
             } catch (Exception ex) {
               showErrorDialog(ex.getMessage());
             }
-            break;
-          case "ISP":
-            selectTab(Tab.PROG);
-            progPane.setText("");
-            Thread tt = new Thread(() -> {
-              try {
-                if (canProgram()) {
-                  // If all fuses are defined in #pragma statements, verify and program, as needed
-                  if (compileMap.containsKey("PRAGMA.LFUSE") && compileMap.containsKey("PRAGMA.HFUSE") && compileMap.containsKey("PRAGMA.EFUSE")) {
-                    // Read current fuse settings from chip
-                    Map<String, String> tags = new HashMap<>();
-                    int retVal = callAvrdude("-U lfuse:r:*[TDIR]*lfuse.hex:h -U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
-                    if (retVal != 0) {
-                      showErrorDialog("Error Verifying Fuse setting with " + ispProgrammer);
-                      return;
-                    }
-                    int[] pFuses = {
-                      Integer.decode(compileMap.get("PRAGMA.LFUSE")),
-                      Integer.decode(compileMap.get("PRAGMA.HFUSE")),
-                      Integer.decode(compileMap.get("PRAGMA.EFUSE"))
-                    };
-                    int[] cFuses = {
-                      Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*lfuse.hex", tags)).trim()),
-                      Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*hfuse.hex", tags)).trim()),
-                      Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*efuse.hex", tags)).trim())
-                    };
-                    String[] tabs = {"LFUSE", "HFUSE", "EFUSE"};
-                    for (int ii = 0; ii < tabs.length; ii++) {
-                      int pFuse = pFuses[ii];
-                      int cFuse = cFuses[ii];
-                      if (pFuse != cFuse) {
-                        // Update fuse value
-                        tags.put("FUSE", tabs[ii].toLowerCase());
-                        tags.put("FVAL", "0x" + Integer.toHexString(pFuse).toUpperCase());
-                        retVal = callAvrdude("-U *[FUSE]*:w:*[FVAL]*:m", tags);
-                        if (retVal != 0) {
-                          showErrorDialog("Error Writing Fuses with " + ispProgrammer);
-                          return;
-                        }
-                      } else {
-                        progPane.append("Fuse " + tabs[ii].toLowerCase() + " already set correctly, so left unchanged\n");
-                      }
-                    }
-                  } else {
-                    progPane.append("Fuses not programmed\n");
-                  }
-                  // Copy contents of "hex" pane to temp file with .hex extension
-                  String hex = hexPane.getText();
-                  FileOutputStream fOut = new FileOutputStream(tmpDir + "code.hex");
-                  fOut.write(hex.getBytes(StandardCharsets.UTF_8));
-                  fOut.close();
-                  // Use AVRDUDE to program chip
-                  Map<String, String> tags = new HashMap<>();
-                  int retVal = callAvrdude("-U flash:w:*[TDIR]*code.hex", tags);
-                  if (retVal != 0) {
-                    showErrorDialog("Error Programming Device Signature with " + ispProgrammer);
-                  }
-                }
-              } catch (Exception ex) {
-                showErrorDialog(ex.getMessage());
-              }
-            });
-            tt.start();
-            break;
+          });
+          tt.start();
+        } else {
+          showErrorDialog("Not supported by selected programmer and target");
         }
       } else {
         showErrorDialog("Target device type not selected");
@@ -646,79 +644,117 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.addActionListener(e -> {
       if (avrChip != null) {
         ChipInfo info = progProtocol.get(avrChip);
-        switch (info.prog) {
-          case "TPI":
+        if ("TPI".equals(info.prog) && isSerialProgrammer() && supportsTPI()) {
+          // Read modify/fuses using ATTiny10GeneratedProgrammer sketch as TPI-based programmer
+          try {
+            String rsp = queryJPort("F\n");
+            if (rsp != null && rsp.startsWith("Fuse:")) {
+              int idx = rsp.indexOf("0xF");
+              String fuse =  rsp.substring(idx + 2, idx + 4);
+              int fVal = Integer.parseInt(fuse, 16);
+              ParmDialog.ParmItem[][] parmSet = getTPIFuseParms(fVal);
+              String[] tabs = {"FUSE"};
+              ParmDialog dialog = new ParmDialog(parmSet, tabs, new String[] {"Program", "Cancel"});
+              dialog.setLocationRelativeTo(this);
+              dialog.setVisible(true);              // Note: this call invokes dialog
+              if (dialog.wasPressed()) {
+                int val = dialog.fuseSet[0].fuseValue;
+                fuse = Integer.toHexString(val & 0x0F).toUpperCase();
+                selectTab(Tab.PROG);
+                progPane.setText("");
+                sendToJPort("\nD\n*" + fuse + "\n:00000001FF\n");
+              }
+            } else {
+              showErrorDialog("Unable to read Fuse byte");
+            }
+          } catch (Exception ex) {
+            showErrorDialog(ex.getMessage());
+          }
+        } else if ("TPI".equals(info.prog) && isAvrdudeProgrammer() && supportsTPI()) {
+          // Read modify/fuses using AVRDUDE as TPI-based programmer
+          selectTab(Tab.PROG);
+          progPane.setText("");
+          Thread tt = new Thread(() -> {
             try {
-              String rsp = queryJPort("F\n");
-              if (rsp != null && rsp.startsWith("Fuse:")) {
-                int idx = rsp.indexOf("0xF");
-                String fuse =  rsp.substring(idx + 2, idx + 4);
-                int fVal = Integer.parseInt(fuse, 16);
-                ParmDialog.ParmItem[][] parmSet = getTPIFuseParms(fVal);
-                String[] tabs = {"FUSE"};
-                ParmDialog dialog = new ParmDialog(parmSet, tabs, new String[] {"Program", "Cancel"});
-                dialog.setLocationRelativeTo(this);
-                dialog.setVisible(true);              // Note: this call invokes dialog
-                if (dialog.wasPressed()) {
-                  int val = dialog.fuseSet[0].fuseValue;
-                  fuse = Integer.toHexString(val & 0x0F).toUpperCase();
-                  selectTab(Tab.PROG);
-                  progPane.setText("");
-                  sendToJPort("\nD\n*" + fuse + "\n:00000001FF\n");
+              // Read current fuse settings from chip
+              Map<String, String> tags = new HashMap<>();
+              int retVal = callAvrdude("-U fuse:r:*[TDIR]*fuse.hex:h ", tags);
+              if (retVal != 0) {
+                showErrorDialog("Error Reading Fuse with " + prefs.get("programmer.name", null));
+                return;
+              }
+              int fuse = Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*fuse.hex", tags)).trim());
+              ParmDialog.ParmItem[][] parmSet = getTPIFuseParms(fuse);
+              String[] tabs = {"FUSE"};
+              ParmDialog dialog = new ParmDialog(parmSet, tabs, new String[] {"Program", "Cancel"});
+              dialog.setLocationRelativeTo(this);
+              dialog.setVisible(true);              // Note: this call invokes dialog
+              if (dialog.wasPressed()) {
+                int dFuse = dialog.fuseSet[0].fuseValue;
+                if (fuse != dFuse) {
+                  // Update fuse value
+                  tags.put("FVAL", "0x" + Integer.toHexString(dFuse).toUpperCase());
+                  retVal = callAvrdude("-U fuse:w:*[FVAL]*:m", tags);
+                  if (retVal != 0) {
+                    showErrorDialog("Error Writing Fuse with " + prefs.get("programmer.name", null));
+                  }
+                } else {
+                  progPane.append("Fuse already set correctly, so left unchanged\n");
                 }
-              } else {
-                showErrorDialog("Unable to read Fuse byte");
+             }
+            } catch (Exception ex) {
+              showErrorDialog(ex.getMessage());
+            }
+          });
+          tt.start();
+        } else if ("ISP".equals(info.prog) && isAvrdudeProgrammer() && supportsISP()) {
+          // Read modify/fuses using AVRDUDE as ISP-based programmer
+          selectTab(Tab.PROG);
+          progPane.setText("");
+          Thread tt = new Thread(() -> {
+            try {
+              // Read current fuse settings from chip
+              Map<String, String> tags = new HashMap<>();
+              int retVal = callAvrdude("-U lfuse:r:*[TDIR]*lfuse.hex:h -U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
+              if (retVal != 0) {
+                showErrorDialog("Error Reading Fuses with " + prefs.get("programmer.name", null));
+                return;
+              }
+              int[] fuses = {
+                  Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*lfuse.hex", tags)).trim()),
+                  Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*hfuse.hex", tags)).trim()),
+                  Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*efuse.hex", tags)).trim())
+              };
+              ParmDialog.ParmItem[][] parmSet = getSPIFuseParms(fuses[0], fuses[1], fuses[2]);
+              String[] tabs = {"LFUSE", "HFUSE", "EFUSE"};
+              ParmDialog dialog = new ParmDialog(parmSet, tabs, new String[]{"Program", "Cancel"});
+              dialog.setLocationRelativeTo(this);
+              dialog.setVisible(true);              // Note: this call invokes dialog
+              if (dialog.wasPressed()) {
+                for (int ii = 0; ii < fuses.length; ii++) {
+                  int dFuse = dialog.fuseSet[ii].fuseValue;
+                  int cFuse = fuses[ii];
+                  if (dFuse != cFuse) {
+                    // Update fuse value
+                    tags.put("FUSE", tabs[ii].toLowerCase());
+                    tags.put("FVAL", "0x" + Integer.toHexString(dFuse).toUpperCase());
+                    retVal = callAvrdude("-U *[FUSE]*:w:*[FVAL]*:m", tags);
+                    if (retVal != 0) {
+                      showErrorDialog("Error Writing Fuses with " + prefs.get("programmer.name", null));
+                      return;
+                    }
+                  } else {
+                    progPane.append("Fuse " + tabs[ii].toLowerCase() + " already set correctly, so left unchanged\n");
+                  }
+                }
               }
             } catch (Exception ex) {
               showErrorDialog(ex.getMessage());
             }
-            break;
-          case "ISP":
-            selectTab(Tab.PROG);
-            progPane.setText("");
-            Thread tt = new Thread(() -> {
-              try {
-                // Read current fuse settings from chip
-                Map<String, String> tags = new HashMap<>();
-                int retVal = callAvrdude("-U lfuse:r:*[TDIR]*lfuse.hex:h -U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
-                if (retVal != 0) {
-                  showErrorDialog("Error Reading Fuses with " + ispProgrammer);
-                  return;
-                }
-                int[] fuses = {
-                  Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*lfuse.hex", tags)).trim()),
-                  Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*hfuse.hex", tags)).trim()),
-                  Integer.decode(Utility.getFile(Utility.replaceTags("*[TDIR]*efuse.hex", tags)).trim())
-                };
-                ParmDialog.ParmItem[][] parmSet = getSPIFuseParms(fuses[0], fuses[1], fuses[2]);
-                String[] tabs = {"LFUSE", "HFUSE", "EFUSE"};
-                ParmDialog dialog = new ParmDialog(parmSet, tabs, new String[] {"Program", "Cancel"});
-                dialog.setLocationRelativeTo(this);
-                dialog.setVisible(true);              // Note: this call invokes dialog
-                if (dialog.wasPressed()) {
-                  for (int ii = 0; ii < fuses.length; ii++) {
-                    int dFuse = dialog.fuseSet[ii].fuseValue;
-                    int cFuse = fuses[ii];
-                    if (dFuse != cFuse) {
-                      // Update fuse value
-                      tags.put("FUSE", tabs[ii].toLowerCase());
-                      tags.put("FVAL", "0x" + Integer.toHexString(dFuse).toUpperCase());
-                      retVal = callAvrdude("-U *[FUSE]*:w:*[FVAL]*:m", tags);
-                      if (retVal != 0) {
-                        showErrorDialog("Error Writing Fuses with " + ispProgrammer);
-                        return;
-                      }
-                    } else {
-                      progPane.append("Fuse " + tabs[ii].toLowerCase() + " already set correctly, so left unchanged\n");
-                    }
-                  }
-                }
-              } catch (Exception ex) {
-                showErrorDialog(ex.getMessage());
-              }
-            });
-            tt.start();
-            break;
+          });
+          tt.start();
+        } else {
+          showErrorDialog("Not supported by selected programmer and target");
         }
       } else {
         showErrorDialog("Target device type not selected");
@@ -732,66 +768,70 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.addActionListener(e -> {
       if (avrChip != null) {
         ChipInfo info = progProtocol.get(avrChip);
-        switch (info.prog) {
-          case "TPI":
-            try {
-              selectTab(Tab.PROG);
-              progPane.setText("Read Device Signature and Fuse\n");
-              sendToJPort("S\n");
-            } catch (Exception ex) {
-              showErrorDialog(ex.getMessage());
-            }
-            break;
-          case "ISP":
+        if ("TPI".equals(info.prog) && isSerialProgrammer() && supportsTPI()) {
+          // Read signaure using ATTiny10GeneratedProgrammer sketch as TPI-based programmer
+          try {
             selectTab(Tab.PROG);
-            progPane.setText("");
-            Thread tt = new Thread(() -> {
-              try {
-                Map<String, String> tags = new HashMap<>();
-                int retVal = callAvrdude("-U signature:r:*[TDIR]*sig.hex:h", tags);
-                if (retVal != 0) {
-                  showErrorDialog("Error Reading Device Signature with " + ispProgrammer);
-                  return;
-                }
-                String tmp = Utility.getFile(Utility.replaceTags("*[TDIR]*sig.hex", tags)).trim().toUpperCase().replace('X', 'x');
-                String[] sigBytes = tmp.split(",");
-                StringBuilder buf = new StringBuilder();
-                for (String sigByte : sigBytes) {
-                  String val = sigByte.split("x")[1];
-                  buf.append(val.length() == 2 ? val : "0" + val);
-                }
-                String device = sigLookup.get(buf.toString());
-                progPane.append("Device Signature: " + tmp + " - " + (device != null ? device : "unknown") + "\n");
-              } catch (Exception ex) {
-                ex.printStackTrace();
+            progPane.setText("Read Device Signature and Fuse\n");
+            sendToJPort("S\n");
+          } catch (Exception ex) {
+            showErrorDialog(ex.getMessage());
+          }
+        } else if ("TPI".equals(info.prog) && isAvrdudeProgrammer() && supportsTPI() ||
+                   "ISP".equals(info.prog) && isAvrdudeProgrammer() && supportsISP()) {
+          // Read signature using AVRDUDE and TPI or ISP protocol
+          selectTab(Tab.PROG);
+          progPane.setText("");
+          Thread tt = new Thread(() -> {
+            try {
+              Map<String, String> tags = new HashMap<>();
+              int retVal = callAvrdude("-U signature:r:*[TDIR]*sig.hex:h", tags);
+              if (retVal != 0) {
+                showErrorDialog("Error Reading Device Signature with " + prefs.get("programmer.name", null));
+                return;
               }
-            });
-            tt.start();
-            break;
+              String tmp = Utility.getFile(Utility.replaceTags("*[TDIR]*sig.hex", tags)).trim().toUpperCase().replace('X', 'x');
+              String[] sigBytes = tmp.split(",");
+              StringBuilder buf = new StringBuilder();
+              for (String sigByte : sigBytes) {
+                String val = sigByte.split("x")[1];
+                buf.append(val.length() == 2 ? val : "0" + val);
+              }
+              String device = sigLookup.get(buf.toString());
+              progPane.append("Device Signature: " + tmp + " - " + (device != null ? device : "unknown") + "\n");
+            } catch (Exception ex) {
+              ex.printStackTrace();
+            }
+          });
+          tt.start();
+        } else {
+          showErrorDialog("Not supported by selected programmer and target");
         }
       } else {
         showErrorDialog("Target device type not selected");
       }
     });
+    /*
+     *    Calibrate Clock
+     */
     actions.add(mItem = new JMenuItem("Calibrate Device Clock"));
     mItem.setToolTipText("Commands TPI Programmer to Upload and Run Clock Calibration Code on Device");
     mItem.addActionListener(e -> {
       if (avrChip != null) {
         ChipInfo info = progProtocol.get(avrChip);
-        switch (info.prog) {
-          case "TPI":
+        if ("TPI".equals(info.prog) && isSerialProgrammer() && supportsTPI()) {
+          if (doWarningDialog("Clock Calibration requires overwriting the code in the target device.  Proceed?")) {
             try {
               selectTab(Tab.PROG);
               progPane.setText("Programming Clock Code\n");
               String hex = Utility.getFile("res:clockcal.hex");
               sendToJPort("\nD\n" + hex + "\nM\n");
-            } catch (Exception ex) {
+            } catch(Exception ex){
               showErrorDialog(ex.getMessage());
             }
-            break;
-          case "ISP":
-            showErrorDialog("Not Implemented for ISP Protocol");
-            break;
+          }
+        } else {
+          showErrorDialog("Not supported by selected programmer and target");
         }
       }
     });
@@ -935,42 +975,30 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     // Add "Font Size" Menu with submenu
     settings.add(codePane.getFontSizeMenu());
     settings.addSeparator();
-
-      JMenu tpiSettings = new JMenu("Serial Port");
-      settings.add(tpiSettings);
-      settings.addSeparator();
-      // Add "Port" and "Baud" Menus to MenuBar
-      jPort = new JSSCPort(prefs);
-      tpiSettings.add(jPort.getPortMenu());
-      tpiSettings.add(jPort.getBaudMenu());
-      JMenu icspProg = new JMenu("ISP Programmer");
-      icspProg.setToolTipText("Select ISP Programmer - used to program ATTinyX4 and ATTinyX4 devices");
+    // Add Programmer Menu Item
+    JMenuItem programmer = new JMenuItem("Programmer");
+    programmer.addActionListener(ev -> {
       try {
-        ButtonGroup icspGroup = new ButtonGroup();
-        Map<String,String> pgrmrs = Utility.getOrderedResourceMap("icsp_programmers.props");
-        for (String key : pgrmrs.keySet()) {
-          Map<String,String> json = Utility.parseJSON(pgrmrs.get(key));
-          String val = json.get("name");
-          String toolTip = json.get("desc");
-          JRadioButtonMenuItem item = new JRadioButtonMenuItem(val);
-          icspGroup.add(item);
-          if (toolTip != null) {
-            item.setToolTipText("<html>" + toolTip + "</html>");
-          }
-          icspProg.add(item);
-          if (ispProgrammer.equals(key)) {
-            item.setSelected(true);
-          }
-          item.addActionListener(ex -> {
-            prefs.put("icsp_programmer", ispProgrammer = key);
-            //System.out.println(key);
-          });
+        ProgrammerDialog dialog = new ProgrammerDialog(prefs);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+        /*
+        if (dialog.wasPressed()) {
+          System.out.println("Save:");
+          System.out.println("  programmer.name:       " + prefs.get("programmer.name", null));
+          System.out.println("  programmer.programmer: " + prefs.get("programmer.programmer", null));
+          System.out.println("  programmer.protocols:  " + prefs.get("programmer.protocols", null));
+          System.out.println("  programmer.connection: " + prefs.get("programmer.connection", null));
+          System.out.println("  programmer.port:       " + prefs.get("programmer.port", null));
+          System.out.println("  programmer.rate:       " + prefs.get("programmer.rate", null));
         }
+        */
       } catch (Exception ex) {
+        showErrorDialog(ex.getMessage());
         ex.printStackTrace();
       }
-      settings.add(icspProg);
-
+    });
+    settings.add(programmer);
     /*
      *    Target Menu
      */
@@ -980,29 +1008,27 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     String libType = null;
     for (String type : progProtocol.keySet()) {
       ChipInfo info = progProtocol.get(type);
-      if (libType != null && !libType.equals(info.variant)) {
+      if ((libType != null && !libType.equals(info.variant)) || (libType == null && info.variant != null)) {
         targetMenu.addSeparator();
       }
       libType = info.variant;
       JRadioButtonMenuItem item = new JRadioButtonMenuItem(type);
-      item.setSelected("attiny10".equals(type));
+      item.setSelected("attiny10".equals(prefs.get("programmer.target", "attiny10")));
       targetMenu.add(item);
       targetGroup.add(item);
       item.addActionListener( ex -> {
         avrChip = type;
         targetMenu.setText("Target->" + avrChip);
+        prefs.put("programmer.target", avrChip);
       });
     }
-    avrChip = "attiny10";
+    avrChip = prefs.get("programmer.target", "attiny10");
     targetMenu.setText("Target->" + avrChip);
     setJMenuBar(menuBar);
     // Add window close handler
     addWindowListener(new WindowAdapter() {
       public void windowClosing (WindowEvent ev) {
         if (!codeDirty  ||  discardChanges()) {
-          if (jPort.isOpen()) {
-            jPort.close();
-          }
           System.exit(0);
         }
       }
@@ -1025,6 +1051,33 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     });
     setVisible(true);
     verifyToolchain();
+  }
+
+  private boolean supportsTPI () {
+    return supports("protocols", "TPI");
+  }
+
+  private boolean supportsISP () {
+    return supports("protocols", "ISP");
+  }
+
+  private boolean isSerialProgrammer () {
+    return supports("connection", "serial");
+  }
+
+  private boolean isAvrdudeProgrammer () {
+    return supports("connection", "avrdude");
+  }
+
+  private boolean supports (String field, String match) {
+    String value = prefs.get("programmer." + field, "");
+    String[] parts = value.split(";");
+    for (String part : parts) {
+      if (match.equals(part)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private void updateChip (String src) {
@@ -1057,12 +1110,16 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   }
 
   private String queryJPort (String send) throws Exception {
-    JPortSender sndr = new JPortSender(send, jPort, true);
+    JPortSender sndr = new JPortSender(send, true);
     return sndr.rsp;
   }
 
   private void sendToJPort (String send) throws Exception {
-    new JPortSender(send, jPort, false);
+    if (prefs.get("programmer.port", null) != null && prefs.get("programmer.rate", null) != null) {
+      new JPortSender(send, false);
+    } else {
+      showErrorDialog("Programmer serial port not configured");
+    }
   }
 
   private class JPortSender implements Runnable, JSSCPort.RXEvent {
@@ -1072,9 +1129,11 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     private volatile int      timeout;
     private volatile int      setupState;
 
-    JPortSender (String send, JSSCPort jPort, boolean getResponse) throws Exception {
+    JPortSender (String send, boolean getResponse) throws Exception {
       this.send = send;
-      this.jPort = jPort;
+      jPort = new JSSCPort();
+      jPort.setPort(prefs.get("programmer.port", null));
+      jPort.setRate(prefs.get("programmer.rate", null));
       timoutReset= this.timeout = 100;   // timeout is 10 seconds
       Thread thrd = new Thread(this);
       if (jPort.open(this)) {
@@ -1141,7 +1200,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             ex.printStackTrace();
           }
         }
-        jPort.close();
+        if (jPort != null && jPort.isOpen()) {
+          jPort.close();
+        }
       } catch (Exception ex) {
         ex.printStackTrace();
       }
@@ -1150,13 +1211,16 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
 
   private int callAvrdude (String op,  Map<String, String> tags) throws Exception {
     tags.put("VBS", prefs.getBoolean("developer_features", false) ? "-v" : "");
-    tags.put("PROG", ispProgrammer);
+    tags.put("PROG", prefs.get("programmer.programmer", null));
     tags.put("TDIR", tmpDir);
     ChipInfo chipInfo = progProtocol.get(avrChip != null ? avrChip.toLowerCase() : null);
     tags.put("CHIP", chipInfo != null ? chipInfo.part : "t85");
     tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
-    boolean usesPort = "arduino".equals(ispProgrammer) || "buspirate".equals(ispProgrammer);
-    tags.put("OUT", usesPort ? "-P " + jPort.getPortName() + " -b 19200" : "-P usb");
+    if (isSerialProgrammer()) {
+      tags.put("OUT", "-c " + prefs.get("programmer.port", "") +" -b " + prefs.get("programmer.rate", ""));
+    } else {
+      tags.put("OUT", "-P usb");
+    }
     String exec = Utility.replaceTags("avrdude *[VBS]* *[OUT]* -C *[CFG]* -c *[PROG]* -p *[CHIP]* " + op, tags);
     String cmd = tmpExe + "bin" + fileSep + exec;
     System.out.println("Run: " + cmd);
@@ -1315,8 +1379,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       // Append FTDI->TPI programmer info to avrdude.conf
       try {
         String conf = Utility.getFile(tmpExe + "etc/avrdude.conf");
-        StringBuilder buf = new StringBuilder(conf);
-        buf.append("\nprogrammer\n" +
+        String buf = conf + "\nprogrammer\n" +
             "  id    = \"dasaftdi\";\n" +
             "  desc  = \"FTDI serial port banging, reset=rts sck=dtr mosi=txd miso=cts\";\n" +
             "  type  = serbb;\n" +
@@ -1324,8 +1387,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             "  sck   = ~4;\n" +
             "  mosi  = ~3;\n" +
             "  miso  = ~8;\n" +
-            ";\n");
-        Utility.saveFile(tmpExe + "etc/avrdude.conf", buf.toString());
+            ";\n";
+        Utility.saveFile(tmpExe + "etc/avrdude.conf", buf);
       } catch (Exception ex) {
         ex.printStackTrace();
       }
@@ -1357,7 +1420,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         ZipFile zip = null;
         try {
           Path file = Files.createTempFile(null, ".zip");
-          InputStream stream = this.getClass().getResourceAsStream(srcZip);
+          InputStream stream = ATTinyC.class.getClassLoader().getResourceAsStream(srcZip);
           Files.copy(stream, file, StandardCopyOption.REPLACE_EXISTING);
           File srcFile = file.toFile();
           srcFile.deleteOnExit();

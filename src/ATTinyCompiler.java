@@ -279,14 +279,18 @@ class ATTinyCompiler {
             StringBuilder buf = new StringBuilder();
             boolean inSketch = false;
             boolean lineMarkerFound = false;
-            String pattern = "#\\s\\d+\\s\"(.*?)\"";
-            Pattern lMatch = Pattern.compile(pattern);
+            Pattern lMatch = Pattern.compile("#\\s\\d+\\s\"(.*?)\"");
+            String pathPat = tmpDir + "Sketch.cpp";
+            String osName = System.getProperty("os.name").toLowerCase();
+            if (osName.contains("win")) {
+              pathPat = pathPat.replace("\\", "\\\\");
+            }
             while (lines.hasMoreElements()) {
               String line = lines.nextToken();
               Matcher mat = lMatch.matcher(line);
               if (mat.find()) {
                 String seq = mat.group(1);
-                inSketch = seq.matches(tmpDir + "Sketch.cpp");
+                inSketch = seq.equals(pathPat);
                 if (!lineMarkerFound) {
                   buf.append(line).append("\n");
                   lineMarkerFound = true;
