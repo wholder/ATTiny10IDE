@@ -317,7 +317,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     JMenuItem mItem;
     fileMenu.add(mItem = new JMenuItem("About"));
     mItem.addActionListener(e -> showAboutBox());
-
     fileMenu.add(mItem = new JMenuItem("Preferences"));
     mItem.addActionListener(e -> showPreferences(e.getModifiers()));
     // Add "Check for Updates" Menu item
@@ -334,7 +333,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             float oldV = Float.parseFloat(oldVersion);
             float newV = Float.parseFloat(newVersion);
             if (newV > oldV) {
-              doLinkDialog("<html>A new version is available!<br>" +
+              String status = latest.getProperty("status");
+              String version = newVersion + (status != null && status.length() > 0 ? " " + status : "");
+              doLinkDialog("<html>A new version (" + version + ") is available!<br>" +
                            "Do you want to go to the download page?</html>", DOWNLOAD);
             } else {
               doInfoDialog("You have the latest version.");
