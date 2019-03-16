@@ -2,6 +2,8 @@ import java.awt.*;
 import java.awt.event.*;
 
 import java.io.*;
+import java.net.URI;
+import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
@@ -9,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+
 import java.util.*;
 import java.util.List;
 import java.util.prefs.Preferences;
@@ -34,7 +37,8 @@ import static javax.swing.JOptionPane.showMessageDialog;
    */
 
 public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
-  private static final String       VERSION = "1.0 beta";
+  private static final String       VERSION_URL = "https://raw.githubusercontent.com/wholder/ATTiny10IDE/master/resources/version.props";
+  private static final String       DOWNLOAD = "https://github.com/wholder/ATTiny10IDE/blob/master/out/artifacts/ATTiny10IDE_jar/ATTiny10IDE.jar";
   private static final String       fileSep =  System.getProperty("file.separator");
   private static String             tempBase = System.getProperty("java.io.tmpdir");
   private static Font               tFont = getCodeFont(12);
@@ -59,6 +63,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private File                      cFile;
   private transient Preferences     prefs = Preferences.userRoot().node(this.getClass().getName());
   private Map<String, String>       compileMap;
+  private Properties                versionInfo;
   private static Map<String,String> sigLookup = new HashMap<>();
 
   {
@@ -210,6 +215,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     } catch (Exception ex) {
       ex.printStackTrace();
     }
+    String version = versionInfo.get("version") + " " + versionInfo.get("status");
     showMessageDialog(this,
       "By: Wayne Holder\n" +
         "java.io.tmpdir: " + tempBase + "\n" +
@@ -218,7 +224,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         "Java Version: " + System.getProperty("java.version") + "\n" +
         "Java Simple Serial Connector: " + SerialNativeInterface.getLibraryVersion() + "\n" +
         "JSSC Native Code DLL Version: " + SerialNativeInterface.getNativeLibraryVersion() + "\n",
-        "ATtiny10IDE " + VERSION, INFORMATION_MESSAGE,  icon);
+        "ATtiny10IDE " + version, INFORMATION_MESSAGE,  icon);
   }
 
   private void showPreferences (int modifiers) {
@@ -259,6 +265,14 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       base.mkdirs();
     }
     tmpExe = base.getAbsolutePath() + fileSep;
+    // Load version info
+    try {
+      versionInfo = Utility.getResourceMap("version.props");
+    } catch (IOException ex) {
+      showErrorDialog("Unable to load version.props");
+      ex.printStackTrace();
+      System.exit(0);
+    }
     // Setup interface
     setBackground(Color.white);
     setLayout(new BorderLayout(1, 1));
@@ -303,8 +317,36 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     JMenuItem mItem;
     fileMenu.add(mItem = new JMenuItem("About"));
     mItem.addActionListener(e -> showAboutBox());
+
     fileMenu.add(mItem = new JMenuItem("Preferences"));
     mItem.addActionListener(e -> showPreferences(e.getModifiers()));
+    // Add "Check for Updates" Menu item
+    fileMenu.add(mItem = new JMenuItem("Check for Updates"));
+    mItem.addActionListener(ev -> {
+      // Check for new version available
+      // https://github.com/wholder/ATTiny10IDE/blob/master/resources/version.props
+      try {
+        Properties latest = Utility.getResourceMap(new URL(VERSION_URL));
+        String oldVersion = versionInfo.getProperty("version");
+        String newVersion = latest.getProperty("version");
+        if (oldVersion != null && newVersion != null) {
+          try {
+            float oldV = Float.parseFloat(oldVersion);
+            float newV = Float.parseFloat(newVersion);
+            if (newV > oldV) {
+              doLinkDialog("<html>A new version is available!<br>" +
+                           "Do you want to go to the download page?</html>", DOWNLOAD);
+            } else {
+              doInfoDialog("You have the latest version.");
+            }
+          } catch (NumberFormatException ex) {
+            ex.printStackTrace();
+          }
+        }
+      } catch (IOException ex) {
+        ex.printStackTrace();
+      }
+    });
     fileMenu.addSeparator();
     fileMenu.add(mItem = new JMenuItem("New"));
     mItem.addActionListener(e -> {
@@ -1568,6 +1610,25 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     ImageIcon icon = new ImageIcon(Utility.class.getResource("images/warning-32x32.png"));
     return JOptionPane.showConfirmDialog(this, question, "Warning", JOptionPane.YES_NO_OPTION,
       JOptionPane.WARNING_MESSAGE, icon) == JOptionPane.OK_OPTION;
+  }
+
+  private void doInfoDialog (String info) {
+    ImageIcon icon = new ImageIcon(Utility.class.getResource("images/info-32x32.png"));
+    JOptionPane.showMessageDialog(this, info, "Attention", INFORMATION_MESSAGE, icon);
+  }
+
+  private void doLinkDialog (String info, String link) {
+    ImageIcon icon = new ImageIcon(Utility.class.getResource("images/info-32x32.png"));
+    if (JOptionPane.showConfirmDialog(this, info, "Warning", JOptionPane.YES_NO_OPTION,
+        JOptionPane.WARNING_MESSAGE, icon) == JOptionPane.OK_OPTION) {
+      if (Desktop.isDesktopSupported()) {
+        try {
+          Desktop.getDesktop().browse(new URI(link));
+        } catch (Exception ex) {
+          ex.printStackTrace();
+        }
+      }
+    }
   }
 
   public static void main (String[] args) {

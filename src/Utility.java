@@ -1,3 +1,4 @@
+import javax.net.ssl.HttpsURLConnection;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -112,8 +113,17 @@ class Utility {
   }
 
   static Properties getResourceMap (String file) throws IOException {
-    InputStream fis = Utility.class.getClassLoader().getResourceAsStream(file);
     Properties prop = new Properties();
+    InputStream fis = Utility.class.getClassLoader().getResourceAsStream(file);
+    prop.load(fis);
+    fis.close();
+    return prop;
+  }
+
+  static Properties getResourceMap (URL url) throws IOException {
+    Properties prop = new Properties();
+    HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+    InputStream fis = conn.getInputStream();
     prop.load(fis);
     fis.close();
     return prop;
