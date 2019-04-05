@@ -113,7 +113,7 @@ public class ExpressionParser {
    * @param in infix expression
    * @return Token[] array postfix expression
    */
-  public static Token[] parse (String in) {
+  static Token[] parse (String in) {
     try {
       Token[] expr = tokenize(in);
       List<Token> out = new ArrayList<>();
@@ -293,7 +293,7 @@ public class ExpressionParser {
    * @param text Input text
    * @return Reformatted output
    */
-  public static String condenseWhitespace (String text) {
+  static String condenseWhitespace (String text) {
     StringTokenizer tok = new StringTokenizer(text);
     StringBuilder buf = new StringBuilder();
     while (tok.hasMoreTokens()) {
@@ -327,7 +327,7 @@ public class ExpressionParser {
    * @param vals Map that supplies values for all expression variables
    * @return Object containing result (Boolean or BigInteger)
    */
-  public static Object eval (Token[] expr, Map vals) {
+  static Object eval (Token[] expr, Map vals) {
     try {
       LinkedList<Object> stack = new LinkedList<>();
       int shortcutId = -1;
@@ -368,8 +368,6 @@ public class ExpressionParser {
             Object val = vals.get(tok.val);
             if (val instanceof Number) {
               stack.add(new BigInteger(val.toString()));
-            } else if (val == null) {
-              stack.add(NULL);
             } else {
               stack.add(val);
             }
@@ -501,11 +499,6 @@ public class ExpressionParser {
             if (!(arg instanceof BigInteger) || !(arg2 instanceof BigInteger))
               throw new IllegalStateException("ExpressionParser.eval() both args not BigInteger max(" + arg2 + ' ' + arg + ')');
             arg = ((BigInteger) arg2).max((BigInteger) arg);
-          } else if ("min".equalsIgnoreCase(func)) {
-            Object arg2 = stack.removeLast();   // leftmost arg
-            if (!(arg instanceof BigInteger) || !(arg2 instanceof BigInteger))
-              throw new IllegalStateException("ExpressionParser.eval() both args not BigInteger min(" + arg2 + ' ' + arg + ')');
-            arg = ((BigInteger) arg2).min((BigInteger) arg);
           } else if ("min".equalsIgnoreCase(func)) {
             Object arg2 = stack.removeLast();   // leftmost arg
             if (!(arg instanceof BigInteger) || !(arg2 instanceof BigInteger))

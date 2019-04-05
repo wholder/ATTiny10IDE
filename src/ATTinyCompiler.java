@@ -4,6 +4,7 @@ import javax.swing.*;
 import java.io.*;
 
 import java.util.*;
+import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -42,13 +43,13 @@ class ATTinyCompiler {
                                         "-ffunction-sections " +      // Separate functions in output file
                                         "-fdata-sections " +          // Separate data in output file
                                         "-fno-threadsafe-statics " +  // No extra code for C++ ABI routines
+                                        "-MMD " +                     // Mention only user header files
                                         "-flto " +                    // Run standard link optimizer (requires 5.4.0)
                                         "-DLTO_ENABLED " +
-                                        "-DF_CPU=*[CLOCK]* " +        // Create #define for F_CPU
                                         "-mmcu=*[CHIP]* " +           // Select CHIP microcontroller type
+                                        "-DF_CPU=*[CLOCK]* " +        // Create #define for F_CPU
                                         "-DARDUINO_ARCH_AVR " +       // #define ARDUINO_ARCH_AVR
                                         "*[DEFINES]* " +              // Add in conditional #defines, if any
-                                        "-MMD " +                     // Mention only user header files
                                         "-I *[TDIR]* " +              // Also search in temp directory for header files
                                         "*[TDIR]**[IFILE]* " +        // Source file is temp/IFILE.x
                                         "-o *[TDIR]**[IFILE]*.o ";    // Output to file temp/IFILE.x.o
@@ -87,7 +88,7 @@ class ATTinyCompiler {
                                         "*[TDIR]**[IFILE]* " +        // Source file is temp/IFILE.x
                                         "-o *[TDIR]**[IFILE]*.o ";    // Output to file temp/IFILE.x.o
 
-  private static final String link = "avr-g++ " +                     // https://linux.die.net/man/1/avr-g++
+  private static final String link = "avr-gcc " +                     // https://linux.die.net/man/1/avr-g++
                                         "-w " +                       // Inhibit all warning messages.
                                         "-Os " +                      // Optimize for size
                                         "-g " +                       // Enable link-time optimization
@@ -105,14 +106,13 @@ class ATTinyCompiler {
 
   private static final String list = "avr-objdump " +                 // https://linux.die.net/man/1/avr-objdump
                                         "-d " +                       // Disassemble code
-                                        "-S " +                       // Display source  code  intermixed  with  disassembly
+                                        "*[INTLV]* " +                // Display source  code  intermixed  with  disassembly
                                         "-t " +                       // Print the symbol table entries
                                         "*[TDIR]*Sketch.elf";         // Input file
 
   private static final String tohex = "avr-objcopy " +                // https://linux.die.net/man/1/avr-objcopy
-                                        "-j .text " +                 // Copy .text section
-                                        "-j .data " +                 // Copy .data section
                                         "-O ihex " +                  // Output format is Intel HEX
+                                        "-R .eeprom " +               // Remove .eeprom section (!!!)
                                         "*[TDIR]*Sketch.elf " +       // Input file
                                         "*[TDIR]*Sketch.hex";         // Output file
 
@@ -128,11 +128,13 @@ class ATTinyCompiler {
       {"LST", list},
       {"SIZE", size},
   };
+
   private static String[][] build = {
       {"TOHEX", tohex},
       {"LST", list},   // Note add "-l' for source path and line numbers (Warning: large lines!)
       {"SIZE", size},
   };
+
   private static Map<String, Integer> fuses = new HashMap<>();
 
   static {
@@ -142,7 +144,7 @@ class ATTinyCompiler {
     fuses.put("rstdisbl", 1); // External Reset Disable
   }
 
-  static Map<String, String> compile (String src, Map<String, String> tags, JFrame tinyIde) throws Exception {
+  static Map<String, String> compile (String src, Map<String, String> tags, Preferences prefs, JFrame tinyIde) throws Exception {
     String tmpDir = tags.get("TDIR");
     String tmpExe = tags.get("TEXE");
     String srcName = tags.get("FNAME").toLowerCase();
@@ -219,6 +221,7 @@ class ATTinyCompiler {
       }
     }
     tags.put("CHIP", chip);
+    tags.put("INTLV", prefs.getBoolean("interleave", true) ? "-S" : "");
     tags.put("CLOCK", clock != null ? clock : "8000000");
     tags.put("DEFINES", defines.toString());
     // Build list of files we need to compile and link

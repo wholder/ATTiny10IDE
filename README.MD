@@ -14,13 +14,14 @@ If you just want to try out the program, you don't need to download and compile 
  - Now uses .d files to determine dependencies for included library files
  - New Programmer selection dialog replaces menu-based selection and configuration
  - Fixed a regression that prevented Windows version from working properly
+ - Fixed linker command so passing string literals as parameters now works (long-standing bug)
  
 ## Help Requested
 
 So far this is just a one man project and I struggle at times to do adequate testing, especially on Windows and Linux, when I release a nw version. So, if anyone spots a problem, or has a question or a sugegstion, [please post an issue](https://github.com/wholder/ATTiny10IDE/issues) so I can investigate.  You can also email me at questions4wayne at gmail dot com.
 
 ## Requirements
-I suggest using Java 8 JRE or JDK, or later for ATTiny10IDE, but the code also seems to run under the OpenJDK Java on Linux.  Note: I wrote ATTiny10IDE on a Mac Pro using the _Community_ version of [IntelliJ IDEA from JetBrains](https://www.jetbrains.com/idea/) and OS X is the only environment where I have extensively tested and used ATTiny10IDE .  I've included GNU/AVR toolchains for Mac and 64 bit Windows and 64 bit Linux, but have not extensively tested the code under Windows or Linux.  Feel free to report any issues you discover.  I'll do my best, when time permits, to investigate them, but I cannot guarantee fixes, timely or otherwise.
+I suggest using [Java 8 JRE](https://www.java.com) or JDK, or later for ATTiny10IDE, but the code also seems to run under the OpenJDK Java on Linux.  Note: I wrote ATTiny10IDE on a Mac Pro using the _Community_ version of [IntelliJ IDEA from JetBrains](https://www.jetbrains.com/idea/) and OS X is the only environment where I have extensively tested and used ATTiny10IDE .  I've included GNU/AVR toolchains for Mac and 64 bit Windows and 64 bit Linux, but have not extensively tested the code under Windows or Linux.  Feel free to report any issues you discover.  I'll do my best, when time permits, to investigate them, but I cannot guarantee fixes, timely or otherwise.
 ## Using ATTiny10IDE
 ATTiny10IDE supports coding for the ATTiny10 Series of Microcontrollers in C and C++ using the GNU AVR-C++ compiler to generate code.  In addition, ATTiny10IDE supports two ways to write and assemble code the ATTiny10.  One method uses the GNU AVR-AS assembler using a non Atmel-type syntax.  The other uses a [homebrew assembler I wrote that supports an Atmel-like syntax](https://sites.google.com/site/wayneholder/attiny-4-5-9-10-assembly-ide-and-programmer).  The file extension you choose for your code file tells ATTiny10IDE how to process the code:
 

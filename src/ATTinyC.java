@@ -168,10 +168,10 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   static {
     // List of ATTiny types, Protocol used to Program them, etc.
     //       Part Name              Protocol  Core        Variant      Libs         Part  Fuse(s)          Signature
-    addChip("attiny4",  new ChipInfo("TPI",  "core10",     null,        null,     "t4",  "FF",             "1E8F0A"));
-    addChip("attiny5",  new ChipInfo("TPI",  "core10",     null,        null,     "t5",  "FF",             "1E8F09"));
-    addChip("attiny9",  new ChipInfo("TPI",  "core10",     null,        null,     "t9",  "FF",             "1E9008"));
-    addChip("attiny10", new ChipInfo("TPI",  "core10",     null,        null,     "t10", "FF",             "1E9003"));
+    addChip("attiny4",  new ChipInfo("TPI",  "core10",     null,      "lib10",    "t4",  "FF",             "1E8F0A"));
+    addChip("attiny5",  new ChipInfo("TPI",  "core10",     null,      "lib10",    "t5",  "FF",             "1E8F09"));
+    addChip("attiny9",  new ChipInfo("TPI",  "core10",     null,      "lib10",    "t9",  "FF",             "1E9008"));
+    addChip("attiny10", new ChipInfo("TPI",  "core10",     null,      "lib10",    "t10", "FF",             "1E9003"));
     addChip("attiny24", new ChipInfo("ISP",  "coretiny",  "corex4",   "libtiny",  "t24", "l:60,h:DF,e:FF", "1E910B"));
     addChip("attiny44", new ChipInfo("ISP",  "coretiny",  "corex4",   "libtiny",  "t44", "l:60,h:DF,e:FF", "1E9207"));
     addChip("attiny84", new ChipInfo("ISP",  "coretiny",  "corex4",   "libtiny",  "t84", "l:60,h:DF,e:FF", "1E930C"));
@@ -182,7 +182,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
 
   {
     FileNameExtensionFilter[] filters = {
-      new FileNameExtensionFilter("AVR .c files", "c"),
+      new FileNameExtensionFilter("AVR .c  or .cpp files", "c", "cpp"),
       new FileNameExtensionFilter("AVR .asm or .s files", "asm", "s"),
     };
     String ext = prefs.get("default.extension", "c");
@@ -231,6 +231,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     List<ParmDialog.ParmItem> items = new ArrayList<>();
     items.add(new ParmDialog.ParmItem("Generate Prototypes (Experimental){*[GEN_PROTOS]*}",
                                       prefs.getBoolean("gen_prototypes", true)));
+    items.add(new ParmDialog.ParmItem("Interleave Source and ASM{*[INTERLEAVE]*}",
+                                      prefs.getBoolean("interleave", true)));
     boolean devFeatures = (modifiers & InputEvent.CTRL_MASK) != 0;
     if (devFeatures) {
       items.add(new ParmDialog.ParmItem("Enable Preprocessing (Developer){*[PREPROCESS]*}",
@@ -243,10 +245,11 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     dialog.setLocationRelativeTo(this);
     dialog.setVisible(true);              // Note: this call invokes dialog
     if (dialog.wasPressed()) {
-      prefs.putBoolean("gen_prototypes",        parmSet[0].value);
+      prefs.putBoolean("gen_prototypes",          parmSet[0].value);
+      prefs.putBoolean("interleave",              parmSet[1].value);
       if (devFeatures) {
-        prefs.putBoolean("enable_preprocessing",  parmSet[1].value);
-        prefs.putBoolean("developer_features",    parmSet[2].value);
+        prefs.putBoolean("enable_preprocessing",  parmSet[2].value);
+        prefs.putBoolean("developer_features",    parmSet[3].value);
       }
     }
   }
@@ -477,7 +480,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
               if (prefs.getBoolean("gen_prototypes", false)) {
                 tags.put("PREPROCESS", "GENPROTOS");
               }
-              compileMap = ATTinyCompiler.compile(codePane.getText(), tags, this);
+              compileMap = ATTinyCompiler.compile(codePane.getText(), tags, prefs, this);
               String compName = "Sketch.cpp";
               String trueName = cFile.getName();
               if (compileMap.containsKey("ERR")) {
@@ -558,7 +561,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
               tags.put("IDIR", tmpExe + "avr" + fileSep + "include" + fileSep);
               tags.put("FNAME", fName);
               tags.put("PREPROCESS", "PREONLY");
-              compileMap = ATTinyCompiler.compile(codePane.getText(), tags, this);
+              compileMap = ATTinyCompiler.compile(codePane.getText(), tags, prefs, this);
               if (compileMap.containsKey("ERR")) {
                 listPane.setForeground(Color.red);
                 listPane.setText(compileMap.get("ERR"));
@@ -811,7 +814,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.addActionListener(e -> {
       if (avrChip != null) {
         ChipInfo info = progProtocol.get(avrChip);
-        if ("TPI".equals(info.prog) && isSerialProgrammer() && supportsTPI()) {
+        if ("TPI".equals(info.prog) && isSerialProgrammer() && !isAvrdudeProgrammer() && supportsTPI()) {
           // Read signaure using ATTiny10GeneratedProgrammer sketch as TPI-based programmer
           try {
             selectTab(Tab.PROG);
@@ -1253,18 +1256,26 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   }
 
   private int callAvrdude (String op,  Map<String, String> tags) throws Exception {
-    tags.put("VBS", prefs.getBoolean("developer_features", false) ? "-v" : "");
+    tags.put("VBS", prefs.getBoolean("developer_features", false) ? "-v -v -v" : "");
     tags.put("PROG", prefs.get("programmer.programmer", null));
     tags.put("TDIR", tmpDir);
     ChipInfo chipInfo = progProtocol.get(avrChip != null ? avrChip.toLowerCase() : null);
     tags.put("CHIP", chipInfo != null ? chipInfo.part : "t85");
     tags.put("CFG", tmpExe + "etc" + fileSep + "avrdude.conf");
     if (isSerialProgrammer()) {
-      tags.put("OUT", "-c " + prefs.get("programmer.port", "") +" -b " + prefs.get("programmer.rate", ""));
+      String port = prefs.get("programmer.port", "");
+      String rate = prefs.get("programmer.rate", "");
+      tags.put("OUT", "-P " + port + (rate != null && rate.length() > 0  ? " -b " + rate : ""));
     } else {
       tags.put("OUT", "-P usb");
     }
-    String exec = Utility.replaceTags("avrdude *[VBS]* *[OUT]* -C *[CFG]* -c *[PROG]* -p *[CHIP]* " + op, tags);
+    String exec;
+    if ("ftdiprog".equals(prefs.get("programmer.programmer", null))) {
+      tags.put("CFG2", tmpExe + "etc" + fileSep + "ftdiprog.conf");
+      exec = Utility.replaceTags("avrdude *[VBS]* *[OUT]* -C *[CFG]* -C +*[CFG2]* -c *[PROG]* -p *[CHIP]* " + op, tags);
+    } else {
+      exec = Utility.replaceTags("avrdude *[VBS]* *[OUT]* -C *[CFG]* -c *[PROG]* -p *[CHIP]* " + op, tags);
+    }
     String cmd = tmpExe + "bin" + fileSep + exec;
     System.out.println("Run: " + cmd);
     Process proc = Runtime.getRuntime().exec(cmd);
@@ -1412,29 +1423,25 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private void reloadToolchain () {
     try {
       if (os == OpSys.WIN) {
-        new ToolchainLoader(this, "toolchains/WinToolchain.zip", tmpExe);
+        loadToolchain("toolchains/WinToolchain.zip");
       } else if (os == OpSys.MAC) {
-        new ToolchainLoader(this, "toolchains/MacToolchain.zip", tmpExe);
+        loadToolchain("toolchains/MacToolchain.zip");
       } else if (os == OpSys.LINUX) {
-        new ToolchainLoader(this, "toolchains/L64Toolchain.zip", tmpExe);
+        loadToolchain("toolchains/L64Toolchain.zip");
       }
+      // Create and save ftdipro.conf file
+      String ftdiprog = "programmer\n" +
+          "  id    = \"ftdiprog\";\n" +
+          "  desc  = \"design ftdi adatper, reset=rts sck=dtr mosi=txd miso=cts\";\n" +
+          "  type  = \"serbb\";\n" +
+          "  miso  = ~8;\n" +         // CTS
+          "  reset = ~7;\n" +         // RTS
+          "  sck   = ~4;\n" +         // DTR
+          "  mosi  = ~3;\n" +         // TxD
+          ";\n";
+      Utility.saveFile(tmpExe + "etc" + fileSep + "ftdiprog.conf", ftdiprog);
+      // Compute CRC for toolchain
       prefs.remove("reload_toolchain");
-      // Append FTDI->TPI programmer info to avrdude.conf
-      try {
-        String conf = Utility.getFile(tmpExe + "etc/avrdude.conf");
-        String buf = conf + "\nprogrammer\n" +
-            "  id    = \"dasaftdi\";\n" +
-            "  desc  = \"FTDI serial port banging, reset=rts sck=dtr mosi=txd miso=cts\";\n" +
-            "  type  = serbb;\n" +
-            "  reset = ~7;\n" +
-            "  sck   = ~4;\n" +
-            "  mosi  = ~3;\n" +
-            "  miso  = ~8;\n" +
-            ";\n";
-        Utility.saveFile(tmpExe + "etc/avrdude.conf", buf);
-      } catch (Exception ex) {
-        ex.printStackTrace();
-      }
       prefs.putLong("toolchain-crc", Utility.crcTree(tmpExe));
     } catch (Exception ex) {
       ex.printStackTrace();
@@ -1443,14 +1450,26 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     }
   }
 
+  private void loadToolchain (String src) {
+    ToolchainLoader loader = new ToolchainLoader(this, src, tmpExe);
+  }
+
   class ToolchainLoader extends ProgressBar implements Runnable  {
-    private String        srcZip, tmpExe;
+    private String            srcZip, tmpExe;
+    private transient boolean running = true;
 
     ToolchainLoader (JFrame comp, String srcZip, String tmpExe) {
       super(comp, "Installing AVR Toolchain");
       this.srcZip = srcZip;
       this.tmpExe = tmpExe;
-      (new Thread(this)).start();
+      Thread thrd = new Thread(this);
+      thrd.start();
+      // Wait until all files have bee copied
+      while (running) {
+        try {
+          Thread.sleep(100);
+        } catch (InterruptedException ex) {}
+      }
     }
 
     public void run () {
@@ -1500,6 +1519,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
                 }
               }
             }
+            int dum = 0;
           } else {
             showErrorDialog("Unable to open " + srcZip + file);
           }
@@ -1511,6 +1531,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       } catch (Exception ex) {
         ex.printStackTrace();
       }
+      running = false;
       close();
     }
   }

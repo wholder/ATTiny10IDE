@@ -12,8 +12,17 @@
 //                 +----+
 
 const unsigned char program[] PROGMEM  = { /*[CODE]*/ };
+const unsigned char clockCal[] PROGMEM = {
+ 0x0A, 0xC0, 0x18, 0x95, 0x18, 0x95, 0x18, 0x95, 0x18, 0x95, 0x18, 0x95, 0x18, 0x95, 0x18, 0x95,
+ 0x18, 0x95, 0x18, 0x95, 0x18, 0x95, 0x00, 0xE0, 0x0E, 0xBF, 0x0F, 0xE5, 0x0D, 0xBF, 0x08, 0xED,
+ 0x0C, 0xBF, 0x00, 0xE0, 0x06, 0xBF, 0x05, 0xE9, 0x09, 0xBF, 0x0D, 0xE0, 0x01, 0xB9, 0x0D, 0xE0,
+ 0x02, 0xB9, 0x00, 0xE4, 0x0E, 0xBD, 0x0C, 0xE0, 0x0D, 0xBD, 0x0A, 0xE7, 0x07, 0xBD, 0x02, 0xE1,
+ 0x06, 0xBD, 0x18, 0xE0, 0x20, 0xE0, 0x22, 0x0F, 0x08, 0xD0, 0xD9, 0xF3, 0x00, 0x34, 0x08, 0xF0,
+ 0x23, 0x95, 0x1A, 0x95, 0xC1, 0xF7, 0x29, 0xBF, 0xF4, 0xCF, 0x01, 0x99, 0xFE, 0xCF, 0x01, 0xE0,
+ 0x01, 0x99, 0x08, 0x95, 0x03, 0x95, 0xE1, 0xF7, 0x01, 0x9B, 0xFE, 0xCF, 0x08, 0x95
+};
 const char          progName[] = "/*[NAME]*/";
-const unsigned char progparms[]  = { /*[PARMS]*/ };
+const unsigned char progParms[]  = { /*[PARMS]*/ };
 unsigned int        progSize;
 unsigned char       flashMem[1024];
 char                inbuf[8];
@@ -598,8 +607,8 @@ void printInstructions () {
     Serial.print(F(" to ATtiny10 pin "));
     Serial.println(tnyPins[ii]);
   }
-  Serial.println(F("Commands:\n  P - Program ATtiny10\n  I - Identify ATtiny10"));
-  if (sizeof(progparms) > 0) {
+  Serial.println(F("Commands:\n  P - Program ATtiny10\n  I - Identify ATtiny10\n  K - Run Clock Calibration"));
+  if (sizeof(progParms) > 0) {
     Serial.println(F("  C - Change Parameters"));
   }
 }
@@ -651,7 +660,7 @@ void loop () {
           break;
         case 'C':
           // Change exported parameters
-          if (sizeof(progparms) > 0) {
+          if (progParms != 0 && sizeof(progParms) > 0) {
             delay(200);
             while (Serial.available()) {
               Serial.read();
@@ -662,10 +671,10 @@ void loop () {
             unsigned int add;
             unsigned char cc;
             unsigned int val;
-            while (ii < sizeof(progparms)) {
+            while (ii < sizeof(progParms)) {
               switch (state) {
                 case 0:
-                  cc = progparms[ii++];
+                  cc = progParms[ii++];
                   if (cc == 0) {
                     state++;
                   } else {
@@ -673,9 +682,9 @@ void loop () {
                   }
                   break;
                 case 1:
-                  byte size = progparms[ii++];
-                  add = (unsigned int) progparms[ii++] << 8;
-                  add |= progparms[ii++];
+                  byte size = progParms[ii++];
+                  add = (unsigned int) progParms[ii++] << 8;
+                  add |= progParms[ii++];
                   Serial.print(" = ");
                   if (size == 2) {
                     val = flashMem[add + 1] << 8 + flashMem[add];
@@ -716,6 +725,17 @@ void loop () {
           break;
         case 'M':
           measureClock();
+          break;
+        case 'K':
+          memset(flashMem, 0xFF, sizeof(flashMem));
+          memcpy_P(flashMem, clockCal, sizeof(clockCal));
+          progSize = sizeof(clockCal);
+          writeFlash(0x0B);
+          measureClock();
+          // Restore built-in program
+          memset(flashMem, 0xFF, sizeof(flashMem));
+          memcpy_P(flashMem, program, sizeof(program));
+          progSize = sizeof(program);
           break;
         case 'S':
           printSignature();
