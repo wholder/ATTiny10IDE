@@ -8,7 +8,7 @@ Monitor::Monitor (uint8_t monitorPin) {
     DDRB |= _pinMask;
 }
 
-void Monitor::print (const char msg[]) {
+void Monitor::print (char msg[]) {
     write(0xAA);                        // SYNC
     write(0xAB);                        // START
     uint8_t tmp = 0;
@@ -17,19 +17,17 @@ void Monitor::print (const char msg[]) {
         tmp++;
     }
     write(tmp);                         // Length of data
-    tmp = 0;
     char cc;
     while ((cc = *msg++) != 0) {
         write(cc);                      // Data bytes
         tmp += cc;
     }
-    write(tmp);                         // Checksum
+    write(tmp);                         // Checksum (includes length)
     write(0x00);                        // Pad
 }
 
 void Monitor::print (const __FlashStringHelper msg[]) {
-    PGM_P ptr = reinterpret_cast<PGM_P>(msg);
-    print(ptr);
+    print(reinterpret_cast<PGM_P>(msg));
 }
 
 void Monitor::write (uint8_t data) {

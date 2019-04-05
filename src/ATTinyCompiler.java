@@ -117,9 +117,8 @@ class ATTinyCompiler {
                                         "*[TDIR]*Sketch.hex";         // Output file
 
   private static final String size = "avr-size " +                    // https://linux.die.net/man/1/avr-size
-                                        "--format=avr " +             // Architecture is AVR
-                                        "--mcu=*[CHIP]* " +           // Select CHIP microcontroller type
-                                        "*[TDIR]*Sketch.elf";          // Input file
+                                        "-A " +                       //
+                                        "*[TDIR]*Sketch.elf";         // Input file
 
   private static String[][] asm = {
       {"COMP1", "avr-as -mmcu=*[CHIP]* -I *[IDIR]* *[TDIR]*Sketch.S -o *[TDIR]*Sketch.o "},

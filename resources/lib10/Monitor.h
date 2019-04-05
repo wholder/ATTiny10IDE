@@ -11,7 +11,7 @@ class __FlashStringHelper;
 class Monitor {
 public:
     Monitor (uint8_t _monitorPin);
-    void    print (const char msg[]);
+    void    print (char msg[]);
     void    print (const __FlashStringHelper msg[]);
 
 private:
