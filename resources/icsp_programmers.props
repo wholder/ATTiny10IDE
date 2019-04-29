@@ -49,3 +49,10 @@ Atmel-ICE (AVR): {
     desc="Supports both ISP and TPI protocols",
     image="atmel-ice.jpg"
     }
+FTDI TPI: {
+    programmer="ftdiprog",
+    connection="avrdude;serial",
+    rates="",
+    protocols="ISP;TPI",
+    desc="Supports both ISP and TPI protocols using FTDI FT232R Adapter",
+}

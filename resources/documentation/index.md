@@ -1,6 +1,7 @@
 ## Documentation Index
 
  + [Introducing ATTiny10IDE](file://ideintro.md)
+    + [Linux Users - Please Read](file://linux.md)
     + [Troubleshooting](file://trouble.md)
     + [ATTiny Hardware Programmers](file://programmers.md)
     + [Understanding Fuses](file://fuses.md)

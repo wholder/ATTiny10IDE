@@ -149,8 +149,9 @@ class ATTinyCompiler {
     String srcName = tags.get("FNAME").toLowerCase();
     Utility.removeFiles(new File(tmpDir));
     boolean doAsm = srcName.endsWith(".s");
-    boolean preOnly = (srcName.endsWith(".c") || srcName.endsWith(".cpp")) && "PREONLY".equals(tags.get("PREPROCESS"));
-    boolean genProto = (srcName.endsWith(".c") || srcName.endsWith(".cpp")) && "GENPROTOS".equals(tags.get("PREPROCESS"));
+    boolean isCCode = srcName.endsWith(".c") || srcName.endsWith(".cpp") || srcName.endsWith(".ino");
+    boolean preOnly = isCCode && "PREONLY".equals(tags.get("PREPROCESS"));
+    boolean genProto = isCCode && "GENPROTOS".equals(tags.get("PREPROCESS"));
     byte fuseBits = 0x0F;
     String clock = null;
     String chip = "attiny10";

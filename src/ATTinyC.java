@@ -22,6 +22,7 @@ import java.util.zip.ZipFile;
 
 import javax.swing.*;
 import javax.swing.event.HyperlinkEvent;
+import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.text.Document;
 
@@ -182,7 +183,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
 
   {
     FileNameExtensionFilter[] filters = {
-      new FileNameExtensionFilter("AVR .c  or .cpp files", "c", "cpp"),
+      new FileNameExtensionFilter("AVR .c , .cpp or .ino files", "c", "cpp", "ino"),
       new FileNameExtensionFilter("AVR .asm or .s files", "asm", "s"),
     };
     String ext = prefs.get("default.extension", "c");
@@ -359,6 +360,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         codePane.setCode("");
         directHex = false;
         compiled = false;
+        editFile = null;
         setDirtyIndicator(codeDirty = false);
         selectTab(Tab.SRC);
         cFile = null;
@@ -372,7 +374,11 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
           try {
             File oFile = fc.getSelectedFile();
-            prefs.put("default.extension", ((FileNameExtensionFilter) fc.getFileFilter()).getExtensions()[0]);
+            FileFilter filter = fc.getFileFilter();
+            if (filter instanceof FileNameExtensionFilter) {
+              String[] exts = ((FileNameExtensionFilter) filter).getExtensions();
+              prefs.put("default.extension",  exts[0]);
+            }
             String src = Utility.getFile(oFile);
             if (src.contains(":00000001FF")) {
               if (!src.startsWith(":020000020000FC")) {
@@ -415,7 +421,11 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       fc.setSelectedFile(new File(prefs.get("default.dir", "/")));
       if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
         File sFile = fc.getSelectedFile();
-        prefs.put("default.extension", ((FileNameExtensionFilter) fc.getFileFilter()).getExtensions()[0]);
+        FileFilter filter = fc.getFileFilter();
+        if (filter instanceof FileNameExtensionFilter) {
+          String[] exts = ((FileNameExtensionFilter) filter).getExtensions();
+          prefs.put("default.extension",  exts[0]);
+        }
         if (sFile.exists()) {
           if (doWarningDialog("Overwrite Existing file?")) {
             Utility.saveFile(sFile, codePane.getText());
@@ -608,7 +618,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
               sendToJPort("\nD\n" + hex + "\n");
             }
           } catch (Exception ex) {
-            showErrorDialog(ex.getMessage());
+            ex.printStackTrace();
+            showErrorDialog(ex);
           }
         } else if ("TPI".equals(info.prog) && isAvrdudeProgrammer() && supportsTPI() ||
                    "ISP".equals(info.prog) && isAvrdudeProgrammer() && supportsISP()) {
@@ -671,7 +682,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
                 }
               }
             } catch (Exception ex) {
-              showErrorDialog(ex.getMessage());
+              ex.printStackTrace();
+              showErrorDialog(ex);
             }
           });
           tt.start();
@@ -690,7 +702,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     mItem.addActionListener(e -> {
       if (avrChip != null) {
         ChipInfo info = progProtocol.get(avrChip);
-        if ("TPI".equals(info.prog) && isSerialProgrammer() && supportsTPI()) {
+        if ("TPI".equals(info.prog) && isSerialProgrammer() && !isAvrdudeProgrammer() && supportsTPI()) {
           // Read modify/fuses using ATTiny10GeneratedProgrammer sketch as TPI-based programmer
           try {
             String rsp = queryJPort("F\n");
@@ -714,7 +726,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
               showErrorDialog("Unable to read Fuse byte");
             }
           } catch (Exception ex) {
-            showErrorDialog(ex.getMessage());
+            ex.printStackTrace();
+            showErrorDialog(ex);
           }
         } else if ("TPI".equals(info.prog) && isAvrdudeProgrammer() && supportsTPI()) {
           // Read modify/fuses using AVRDUDE as TPI-based programmer
@@ -749,7 +762,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
                 }
              }
             } catch (Exception ex) {
-              showErrorDialog(ex.getMessage());
+              ex.printStackTrace();
+              showErrorDialog(ex);
             }
           });
           tt.start();
@@ -795,7 +809,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
                 }
               }
             } catch (Exception ex) {
-              showErrorDialog(ex.getMessage());
+              ex.printStackTrace();
+              showErrorDialog(ex);
             }
           });
           tt.start();
@@ -821,7 +836,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             progPane.setText("Read Device Signature and Fuse\n");
             sendToJPort("S\n");
           } catch (Exception ex) {
-            showErrorDialog(ex.getMessage());
+            ex.printStackTrace();
+            showErrorDialog(ex);
           }
         } else if ("TPI".equals(info.prog) && isAvrdudeProgrammer() && supportsTPI() ||
                    "ISP".equals(info.prog) && isAvrdudeProgrammer() && supportsISP()) {
@@ -873,7 +889,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
               String hex = Utility.getFile("res:clockcal.hex");
               sendToJPort("\nD\n" + hex + "\nM\n");
             } catch(Exception ex){
-              showErrorDialog(ex.getMessage());
+              ex.printStackTrace();
+              showErrorDialog(ex);
             }
           }
         } else {
@@ -965,7 +982,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
                   }
                 }
               } catch (Exception ex) {
-                showErrorDialog(ex.getMessage());
+                ex.printStackTrace();
+                showErrorDialog(ex);
               }
               break;
             }
@@ -987,7 +1005,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           progPane.setText("Enable Vcc to target\n");
           sendToJPort("V\n");
         } catch (Exception ex) {
-          showErrorDialog(ex.getMessage());
+          ex.printStackTrace();
+          showErrorDialog(ex);
         }
       });
       actions.add(mItem = new JMenuItem("Power Off"));
@@ -997,7 +1016,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           progPane.setText("Disable Vcc to target\n");
           sendToJPort("X\n");
         } catch (Exception ex) {
-          showErrorDialog(ex.getMessage());
+          ex.printStackTrace();
+          showErrorDialog(ex);
         }
       });
     }
@@ -1040,8 +1060,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         }
         */
       } catch (Exception ex) {
-        showErrorDialog(ex.getMessage());
         ex.printStackTrace();
+        showErrorDialog(ex);
       }
     });
     settings.add(programmer);
@@ -1049,6 +1069,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
      *    Target Menu
      */
     targetMenu = new RadioMenu("Target");
+    avrChip = prefs.get("programmer.target", "attiny10");
     ButtonGroup targetGroup = new ButtonGroup();
     menuBar.add(targetMenu);
     String libType = null;
@@ -1059,7 +1080,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       }
       libType = info.variant;
       JRadioButtonMenuItem item = new JRadioButtonMenuItem(type);
-      item.setSelected("attiny10".equals(prefs.get("programmer.target", "attiny10")));
+      if (avrChip.equals(type)) {
+        item.setSelected(true);
+      }
       targetMenu.add(item);
       targetGroup.add(item);
       item.addActionListener( ex -> {
@@ -1068,7 +1091,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         prefs.put("programmer.target", avrChip);
       });
     }
-    avrChip = prefs.get("programmer.target", "attiny10");
     targetMenu.setText("Target->" + avrChip);
     setJMenuBar(menuBar);
     // Add window close handler
@@ -1256,7 +1278,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   }
 
   private int callAvrdude (String op,  Map<String, String> tags) throws Exception {
-    tags.put("VBS", prefs.getBoolean("developer_features", false) ? "-v -v -v" : "");
+    tags.put("VBS", prefs.getBoolean("developer_features", false) ? "-v" : "");   // Use "-v -v -v" to see all
     tags.put("PROG", prefs.get("programmer.programmer", null));
     tags.put("TDIR", tmpDir);
     ChipInfo chipInfo = progProtocol.get(avrChip != null ? avrChip.toLowerCase() : null);
@@ -1434,10 +1456,10 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           "  id    = \"ftdiprog\";\n" +
           "  desc  = \"design ftdi adatper, reset=rts sck=dtr mosi=txd miso=cts\";\n" +
           "  type  = \"serbb\";\n" +
-          "  miso  = ~8;\n" +         // CTS
-          "  reset = ~7;\n" +         // RTS
-          "  sck   = ~4;\n" +         // DTR
-          "  mosi  = ~3;\n" +         // TxD
+          "  miso  = ~8;\n" +         // CTS (inverted)
+          "  reset = ~7;\n" +         // RTS (inverted)
+          "  sck   = ~4;\n" +         // DTR (inverted)
+          "  mosi  = ~3;\n" +         // TxD (inverted)
           ";\n";
       Utility.saveFile(tmpExe + "etc" + fileSep + "ftdiprog.conf", ftdiprog);
       // Compute CRC for toolchain
@@ -1621,6 +1643,16 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
 
   private boolean discardChanges () {
     return doWarningDialog("Discard Changes?");
+  }
+
+  private void showErrorDialog (Exception ex) {
+    String msg = ex.getMessage();
+    if (msg != null && msg.length() > 0) {
+      showErrorDialog(msg);
+    } else {
+      msg = ex.toString();
+      showErrorDialog(msg);
+    }
   }
 
   private void showErrorDialog (String msg) {
