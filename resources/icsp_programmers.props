@@ -7,7 +7,7 @@ Arduino TPI: {
     image="arduinotpi.jpg"
     }
 Arduino ISP: {
-    programmer="arduinoisp",
+    programmer="arduino",
     connection="avrdude;serial",
     rates="19200;57600;115200",
     protocols="ISP",
