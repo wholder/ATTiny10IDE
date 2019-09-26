@@ -32,7 +32,7 @@ class ATTiny10Assembler implements Serializable {
   private int                         maxAdd = 0;
   private int                         dataAdd = 0x40;
   private boolean                     cSeg;
-  private Map<String,Integer>         symbols = new TreeMap<>();
+  private Map<String,Object>          symbols = new TreeMap<>();
   private List<Inst>                  pass2 = new ArrayList<>();
   private byte                        fuseBits = (byte) 0xFF;
 
@@ -519,7 +519,7 @@ class ATTiny10Assembler implements Serializable {
   }
 
   private int toNum (String val) {
-    return ((BigInteger) ExpressionParser.eval(ExpressionParser.parse(val), symbols)).intValue();
+    return ((BigInteger) ExpressionParser.eval(ExpressionParser.parse(val, null), symbols)).intValue();
   }
 
   String getListing () {
@@ -566,12 +566,20 @@ class ATTiny10Assembler implements Serializable {
 
   private int regValue (String reg) {
     reg = reg.toLowerCase();
-    if (symbols.containsKey(reg))
-      return symbols.get(reg);
-    if (regPair.containsKey(reg))
+    if (symbols.containsKey(reg)) {
+      Object val = symbols.get(reg);
+      if (val instanceof Number) {
+        return ((Number) val).intValue();
+      } else {
+        throw new IllegalStateException("Value '" + reg + "'" + " not a number");
+      }
+    }
+    if (regPair.containsKey(reg)) {
       return regPair.get(reg);
-    if (stInst.containsKey(reg)  ||  ldInst.containsKey(reg))
+    }
+    if (stInst.containsKey(reg)  ||  ldInst.containsKey(reg)) {
       return 0;
+    }
     try {
       return toNum(reg);
     } catch (NumberFormatException ex) {
