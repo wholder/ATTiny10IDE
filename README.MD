@@ -8,7 +8,7 @@ If you just want to try out the program, you don't need to download and compile 
 
 ## Recent Updates
 
- - New, compact toolchains for Mac, Windows & Linux extracted and condensed from Arduino 1.8.8
+ - Now using thinned versions of [Microchip's Toolchains](https://www.microchip.com/mplab/avr-support/avr-and-arm-toolchains-c-compilers)
  - Reorganized Action menu and added Target menu
  - Switched TinyX5 and TinyX4 cores and libs to [ATTinyCore by Spence Konde](https://github.com/SpenceKonde/ATTinyCore)
  - Now uses .d files to determine dependencies for included library files
