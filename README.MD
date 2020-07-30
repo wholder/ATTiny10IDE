@@ -1,6 +1,8 @@
 
 <p align="center"><img src="/images/ATTiny10IDE%20Screenshot.png"></p>
 
+**Update:** As of July 29, 2020, In order to support the 64 bit-only Catalina release of macOs, I have revised the code to use a _thinned_ versions of [Microchip's 64 bit GNU Toolchains](https://www.microchip.com/mplab/avr-support/avr-and-arm-toolchains-c-compilers) rather than using 32 bit GNU toolchains extracted from the Arduino project.
+
 # ATTiny10IDE (for 64 bit macOS, Windows & Linux)
 ATTiny10IDE is a simple, GNU-based IDE I originally wrote to simplify writing code for the ATTiny10 Series Microcontrollers using C. C++ or Assembly language.  This new version is a greatly expanded and updated version I started working on in 2014.  [See this article for some additional details on how this project started](https://sites.google.com/site/wayneholder/attiny10-c-ide-and-improved-device-programmer).  For this new release, I've added support for the ATTiny25/45/85 and ATTiny24/44/84 series of microcontrollers, as well support for programming them using an ICSP Programmer.  And, there's also an experimental feature for automatic generation of function prototypes.
 
@@ -8,7 +10,7 @@ If you just want to try out the program, you don't need to download and compile 
 
 ## Recent Updates
 
- - Now using thinned versions of [Microchip's Toolchains](https://www.microchip.com/mplab/avr-support/avr-and-arm-toolchains-c-compilers)
+ - Now using thinned versions of [Microchip's 64 bit GNU Toolchains](https://www.microchip.com/mplab/avr-support/avr-and-arm-toolchains-c-compilers)
  - Reorganized Action menu and added Target menu
  - Switched TinyX5 and TinyX4 cores and libs to [ATTinyCore by Spence Konde](https://github.com/SpenceKonde/ATTinyCore)
  - Now uses .d files to determine dependencies for included library files

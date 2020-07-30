@@ -359,7 +359,6 @@ class ATTinyCompiler {
             tags.put("ERR", msg);
             return tags;
           }
-
           // Scan .d file for include files that need to also be compiled
           String buf = Utility.getFile(tmpDir + compFile + ".d");
           StringTokenizer tok = new StringTokenizer(buf, "\n");
