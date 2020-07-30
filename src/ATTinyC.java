@@ -339,10 +339,21 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             if (newV > oldV) {
               String status = latest.getProperty("status");
               String version = newVersion + (status != null && status.length() > 0 ? " " + status : "");
-              doLinkDialog("<html>A new version (" + version + ") is available!<br>" +
-                           "Do you want to go to the download page?</html>", DOWNLOAD);
+              ImageIcon icon = new ImageIcon(Utility.class.getResource("images/info-32x32.png"));
+              if (JOptionPane.showConfirmDialog(this, "<html>A new version (" + version + ") is available!<br>" +
+                                     "Do you want to go to the download page?</html>", "Warning", JOptionPane.YES_NO_OPTION,
+                  JOptionPane.WARNING_MESSAGE, icon) == JOptionPane.OK_OPTION) {
+                if (Desktop.isDesktopSupported()) {
+                  try {
+                    Desktop.getDesktop().browse(new URI(DOWNLOAD));
+                  } catch (Exception ex) {
+                    ex.printStackTrace();
+                  }
+                }
+              }
             } else {
-              doInfoDialog("You have the latest version.");
+              ImageIcon icon = new ImageIcon(Utility.class.getResource("images/info-32x32.png"));
+              JOptionPane.showMessageDialog(this, "You have the latest version.", "Attention", INFORMATION_MESSAGE, icon);
             }
           } catch (NumberFormatException ex) {
             ex.printStackTrace();
@@ -705,7 +716,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         if ("TPI".equals(info.prog) && isSerialProgrammer() && !isAvrdudeProgrammer() && supportsTPI()) {
           // Read modify/fuses using ATTiny10GeneratedProgrammer sketch as TPI-based programmer
           try {
-            String rsp = queryJPort("F\n");
+            String rsp = (new JPortSender("F\n", true)).rsp;
             if (rsp != null && rsp.startsWith("Fuse:")) {
               int idx = rsp.indexOf("0xF");
               String fuse =  rsp.substring(idx + 2, idx + 4);
@@ -1177,11 +1188,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     targetMenu.setText("Target->" + avrChip);
   }
 
-  private String queryJPort (String send) throws Exception {
-    JPortSender sndr = new JPortSender(send, true);
-    return sndr.rsp;
-  }
-
   private void sendToJPort (String send) throws Exception {
     if (prefs.get("programmer.port", null) != null && prefs.get("programmer.rate", null) != null) {
       new JPortSender(send, false);
@@ -1376,9 +1382,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   }
 
   static class ProgressBar extends JFrame {
-    private JDialog       frame;
-    private JProgressBar  progress;
-    private JTextArea     txt;
+    private final JDialog       frame;
+    private final JProgressBar  progress;
 
     ProgressBar (JFrame comp, String msg) {
       frame = new JDialog(comp);
@@ -1387,7 +1392,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       pnl.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
       frame.add(pnl, BorderLayout.CENTER);
       pnl.add(progress = new JProgressBar(), BorderLayout.NORTH);
-      txt = new JTextArea(msg);
+      JTextArea txt = new JTextArea(msg);
       txt.setEditable(false);
       pnl.add(txt, BorderLayout.SOUTH);
       Rectangle loc = comp.getBounds();
@@ -1397,7 +1402,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     }
 
     void setValue (int value) {
-      progress.setValue(value);
+      SwingUtilities.invokeLater(() -> progress.setValue(value));
     }
 
     void setMaximum (int value) {
@@ -1451,6 +1456,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       } else if (os == OpSys.LINUX) {
         loadToolchain("toolchains/L64Toolchain.zip");
       }
+      /*
       // Create and save ftdipro.conf file
       String ftdiprog = "programmer\n" +
           "  id    = \"ftdiprog\";\n" +
@@ -1473,25 +1479,18 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   }
 
   private void loadToolchain (String src) {
-    ToolchainLoader loader = new ToolchainLoader(this, src, tmpExe);
+    new ToolchainLoader(this, src, tmpExe);
   }
 
-  class ToolchainLoader extends ProgressBar implements Runnable  {
+  class ToolchainLoader implements Runnable  {
     private String            srcZip, tmpExe;
-    private transient boolean running = true;
+    private ProgressBar       progress;
 
     ToolchainLoader (JFrame comp, String srcZip, String tmpExe) {
-      super(comp, "Installing AVR Toolchain");
+      progress = new ProgressBar(comp, "Installing AVR Toolchain");
       this.srcZip = srcZip;
       this.tmpExe = tmpExe;
-      Thread thrd = new Thread(this);
-      thrd.start();
-      // Wait until all files have bee copied
-      while (running) {
-        try {
-          Thread.sleep(100);
-        } catch (InterruptedException ex) {}
-      }
+      new Thread(this).start();
     }
 
     public void run () {
@@ -1511,13 +1510,13 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             srcFile.deleteOnExit();
             zip = new ZipFile(srcFile);
             int entryCount = 0, lastEntryCount = 0;
-            setMaximum(zip.size());
+            progress.setMaximum(zip.size());
             Enumeration entries = zip.entries();
             while (entries.hasMoreElements()) {
               ZipEntry entry = (ZipEntry) entries.nextElement();
               entryCount++;
               if (entryCount - lastEntryCount > 100) {
-                setValue(lastEntryCount = entryCount);
+                progress.setValue(lastEntryCount = entryCount);
               }
               String src = entry.getName();
               if (src.contains("MACOSX")) {
@@ -1541,7 +1540,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
                 }
               }
             }
-            int dum = 0;
           } else {
             showErrorDialog("Unable to open " + srcZip + file);
           }
@@ -1553,8 +1551,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       } catch (Exception ex) {
         ex.printStackTrace();
       }
-      running = false;
-      close();
+      progress.close();
     }
   }
 
@@ -1664,25 +1661,6 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     ImageIcon icon = new ImageIcon(Utility.class.getResource("images/warning-32x32.png"));
     return JOptionPane.showConfirmDialog(this, question, "Warning", JOptionPane.YES_NO_OPTION,
       JOptionPane.WARNING_MESSAGE, icon) == JOptionPane.OK_OPTION;
-  }
-
-  private void doInfoDialog (String info) {
-    ImageIcon icon = new ImageIcon(Utility.class.getResource("images/info-32x32.png"));
-    JOptionPane.showMessageDialog(this, info, "Attention", INFORMATION_MESSAGE, icon);
-  }
-
-  private void doLinkDialog (String info, String link) {
-    ImageIcon icon = new ImageIcon(Utility.class.getResource("images/info-32x32.png"));
-    if (JOptionPane.showConfirmDialog(this, info, "Warning", JOptionPane.YES_NO_OPTION,
-        JOptionPane.WARNING_MESSAGE, icon) == JOptionPane.OK_OPTION) {
-      if (Desktop.isDesktopSupported()) {
-        try {
-          Desktop.getDesktop().browse(new URI(link));
-        } catch (Exception ex) {
-          ex.printStackTrace();
-        }
-      }
-    }
   }
 
   public static void main (String[] args) {
