@@ -188,8 +188,7 @@ public class ExpressionParser {
    * @return Token[] array in postfix form
    */
   private static Token[] tokenize (String in, Map<String,Function> eFuncs) {
-    Map<String,Function> funcs = new HashMap<>();
-    funcs.putAll(iFuncs);
+    Map<String, Function> funcs = new HashMap<>(iFuncs);
     if (eFuncs != null) {
       funcs.putAll(eFuncs);
     }

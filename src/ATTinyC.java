@@ -464,11 +464,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     editMenu.setEnabled(false);
     menuBar.add(editMenu);
     tabPane.addChangeListener(ev -> {
-      if (tabPane.getSelectedIndex() == Tab.SRC.num) {
-        editMenu.setEnabled(true);
-      } else {
-        editMenu.setEnabled(false);
-      }
+      editMenu.setEnabled(tabPane.getSelectedIndex() == Tab.SRC.num);
     });
     // Add "Actions" Menu
     JMenu actions = new JMenu("Actions");
@@ -1645,12 +1641,10 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
 
   private void showErrorDialog (Exception ex) {
     String msg = ex.getMessage();
-    if (msg != null && msg.length() > 0) {
-      showErrorDialog(msg);
-    } else {
+    if (msg == null || msg.length() <= 0) {
       msg = ex.toString();
-      showErrorDialog(msg);
     }
+    showErrorDialog(msg);
   }
 
   private void showErrorDialog (String msg) {

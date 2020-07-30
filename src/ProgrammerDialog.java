@@ -14,7 +14,7 @@ public class ProgrammerDialog extends JDialog {
   private DropDown                        progMenu, progPorts, progRates;
   private JLabel                          progIcon;
 
-  class DropDown extends JComboBox<String> implements ListCellRenderer<String> {
+  static class DropDown extends JComboBox<String> implements ListCellRenderer<String> {
     private DefaultComboBoxModel<String>  model;
     private Map<String,JLabel>            items = new HashMap<>();
 

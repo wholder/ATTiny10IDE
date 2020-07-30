@@ -37,9 +37,7 @@ class ATTiny10Assembler implements Serializable {
   private byte                        fuseBits = (byte) 0xFF;
 
   {
-    for (int ii = 0; ii < output.length; ii++) {
-      output[ii] = (byte) 0xFF;
-    }
+    Arrays.fill(output, (byte) 0xFF);
   }
 
   static {
