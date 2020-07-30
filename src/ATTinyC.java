@@ -1468,6 +1468,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
           "  mosi  = ~3;\n" +         // TxD (inverted)
           ";\n";
       Utility.saveFile(tmpExe + "etc" + fileSep + "ftdiprog.conf", ftdiprog);
+       */
       // Compute CRC for toolchain
       prefs.remove("reload_toolchain");
       prefs.putLong("toolchain-crc", Utility.crcTree(tmpExe));
