@@ -19,8 +19,8 @@ import java.util.zip.CRC32;
 class Utility {
   private static final String   StartMarker = "//:Begin Embedded Markdown Data (do not edit)";
   private static final String   EndMarker = "\n//:End Embedded Markdown Data";
-  private static char[]    hex = {'0', '1', '2', '3', '4', '5', '6', '7',
-                                  '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+  private static final char[]   hex = {'0', '1', '2', '3', '4', '5', '6', '7',
+                                       '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
   static String[] parse (String line) {
     List<String> out = new ArrayList<>();
@@ -104,10 +104,8 @@ class Utility {
       for (File file : files) {
         if (file.isDirectory()) {
           removeFiles(file);
-          file.delete();
-        } else {
-          file.delete();
         }
+        file.delete();
       }
     }
   }

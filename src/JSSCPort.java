@@ -19,14 +19,17 @@ import jssc.*;
 
 public class JSSCPort implements SerialPortEventListener {
   private static final Map<String,Integer>  baudRates = new LinkedHashMap<>();
-  private ArrayBlockingQueue<Integer>       queue = new ArrayBlockingQueue<>(1000);
+  private final ArrayBlockingQueue<Integer> queue = new ArrayBlockingQueue<>(1000);
   private String              portName;
-  private int                 baudRate, dataBits = 8, stopBits = 1, parity = 0;
+  private int                 baudRate;
+  private static final int    dataBits = 8;
+  private static final int    stopBits = 1;
+  private static final int    parity = 0;
   private int                 eventMasks;   // See: SerialPort.MASK_RXCHAR, MASK_TXEMPTY, MASK_CTS, MASK_DSR
-  private int                 flowCtrl = SerialPort.FLOWCONTROL_NONE;
+  private static final int    flowCtrl = SerialPort.FLOWCONTROL_NONE;
   private SerialPort          serialPort;
   private boolean             hasListener;
-  private List<RXEvent>       rxHandlers = new ArrayList<>();
+  private final List<RXEvent> rxHandlers = new ArrayList<>();
 
   interface RXEvent {
     void rxChar (byte cc);

@@ -42,30 +42,40 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private static final String       DOWNLOAD = "https://github.com/wholder/ATTiny10IDE/blob/master/out/artifacts/ATTiny10IDE_jar/ATTiny10IDE.jar";
   private static final String       fileSep =  System.getProperty("file.separator");
   private static String             tempBase = System.getProperty("java.io.tmpdir");
-  private static Font               tFont = getCodeFont(12);
-  private static int                cmdMask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMask();
-  private static KeyStroke          OPEN_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_O, cmdMask) ;
-  private static KeyStroke          SAVE_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_S, cmdMask) ;
-  private static KeyStroke          QUIT_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_Q, cmdMask) ;
-  private static KeyStroke          BUILD_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_B, cmdMask) ;
+  private static final Font         tFont = getCodeFont(12);
+  private static final int          cmdMask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMask();
+  private static final KeyStroke    OPEN_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_O, cmdMask) ;
+  private static final KeyStroke    SAVE_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_S, cmdMask) ;
+  private static final KeyStroke    QUIT_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_Q, cmdMask) ;
+  private static final KeyStroke    BUILD_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_B, cmdMask) ;
   static Map<String,ChipInfo>       progProtocol = new LinkedHashMap<>();
   private enum                      Tab {DOC(0), SRC(1), LIST(2), HEX(3), PROG(4), INFO(5);
                                          final int num; Tab(int num) {this.num = num;}}
-  private String                    osName = System.getProperty("os.name").toLowerCase();
+  private final String              osName = System.getProperty("os.name").toLowerCase();
   private enum                      OpSys {MAC, WIN, LINUX}
   private OpSys                     os;
-  private JTabbedPane               tabPane;
-  private CodeEditPane              codePane;
-  private MyTextPane                listPane, hexPane, progPane, infoPane;
-  private JMenuItem                 openMenu, saveMenu, saveAsMenu, newMenu;
-  private RadioMenu                 targetMenu;
-  private String                    tmpDir, tmpExe, avrChip, editFile, exportParms;
+  private final JTabbedPane         tabPane;
+  private final CodeEditPane        codePane;
+  private MyTextPane                listPane;
+  private MyTextPane                hexPane;
+  private final MyTextPane          progPane;
+  private final MyTextPane          infoPane;
+  private final JMenuItem           openMenu;
+  private JMenuItem                 saveMenu;
+  private final JMenuItem           saveAsMenu;
+  private final JMenuItem           newMenu;
+  private final RadioMenu           targetMenu;
+  private final String              tmpDir;
+  private final String              tmpExe;
+  private String                    avrChip;
+  private String                    editFile;
+  private String                    exportParms;
   private boolean                   directHex, compiled, codeDirty;
   private File                      cFile;
-  private transient Preferences     prefs = Preferences.userRoot().node(this.getClass().getName());
+  private final Preferences         prefs = Preferences.userRoot().node(this.getClass().getName());
   private Map<String, String>       compileMap;
   private Properties                versionInfo;
-  private static Map<String,String> sigLookup = new HashMap<>();
+  private static final Map<String,String> sigLookup = new HashMap<>();
 
   {
     try {
@@ -813,7 +823,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             try {
               // Read current fuse settings from chip
               Map<String, String> tags = new HashMap<>();
-              int retVal = callAvrdude("-U lfuse:r:*[TDIR]*lfuse.hex:h -U hfuse:r:*[TDIR]*hfuse.hex:h -U efuse:r:*[TDIR]*efuse.hex:h", tags);
+              int retVal = callAvrdude("-U lfuse:r:*[TDIR]*lfuse.hex:h -U hfuse:r:*[TDIR]*hfuse.hex:h " +
+                                           "-U efuse:r:*[TDIR]*efuse.hex:h", tags);
               if (retVal != 0) {
                 showErrorDialog("Error Reading Fuses with " + prefs.get("programmer.name", null));
                 return;
@@ -1224,9 +1235,10 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   }
 
   private class JPortSender implements Runnable, JSSCPort.RXEvent {
-    private String            send, rsp ="";
-    private JSSCPort          jPort;
-    private int               timoutReset;
+    private final String      send;
+    private String            rsp ="";
+    private final JSSCPort    jPort;
+    private final int         timoutReset;
     private volatile int      timeout;
     private volatile int      setupState;
 
@@ -1301,7 +1313,7 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             ex.printStackTrace();
           }
         }
-        if (jPort != null && jPort.isOpen()) {
+        if (jPort.isOpen()) {
           jPort.close();
         }
       } catch (Exception ex) {
@@ -1511,8 +1523,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   }
 
   class ToolchainLoader implements Runnable  {
-    private String            srcZip, tmpExe;
-    private ProgressBar       progress;
+    private final String        srcZip;
+    private final String        tmpExe;
+    private final ProgressBar   progress;
 
     ToolchainLoader (JFrame comp, String srcZip, String tmpExe) {
       progress = new ProgressBar(comp, "Installing AVR Toolchain");
@@ -1539,9 +1552,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
             zip = new ZipFile(srcFile);
             int entryCount = 0, lastEntryCount = 0;
             progress.setMaximum(zip.size());
-            Enumeration entries = zip.entries();
+            Enumeration<? extends ZipEntry> entries = zip.entries();
             while (entries.hasMoreElements()) {
-              ZipEntry entry = (ZipEntry) entries.nextElement();
+              ZipEntry entry = entries.nextElement();
               entryCount++;
               if (entryCount - lastEntryCount > 100) {
                 progress.setValue(lastEntryCount = entryCount);
@@ -1591,8 +1604,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   }
 
   static class CodeImage {
-    private byte[]  data;
-    private byte    fuses;
+    private final byte[]  data;
+    private final byte    fuses;
 
     CodeImage (byte[] data, byte fuses) {
       this.data = data;

@@ -9,14 +9,16 @@ import java.util.*;
 import java.util.prefs.Preferences;
 
 public class ProgrammerDialog extends JDialog {
-  private Map<String,Map<String,String>>  progList;
-  private boolean                         cancelled = true, firstSelect = true;
-  private DropDown                        progMenu, progPorts, progRates;
-  private JLabel                          progIcon;
+  private final Map<String,Map<String,String>>  progList;
+  private boolean                               cancelled = true, firstSelect = true;
+  private final DropDown                        progMenu;
+  private final DropDown                        progPorts;
+  private final DropDown                        progRates;
+  private final JLabel                          progIcon;
 
   static class DropDown extends JComboBox<String> implements ListCellRenderer<String> {
-    private DefaultComboBoxModel<String>  model;
-    private Map<String,JLabel>            items = new HashMap<>();
+    private final DefaultComboBoxModel<String>  model;
+    private final Map<String,JLabel>            items = new HashMap<>();
 
     DropDown () {
       super(new DefaultComboBoxModel<>());

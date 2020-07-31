@@ -120,7 +120,7 @@ class ATTinyCompiler {
                                         "-A " +                       //
                                         "*[TDIR]*Sketch.elf";         // Input file
 
-  private static String[][] asm = {
+  private static final String[][] asm = {
       {"COMP1", "avr-as -mmcu=*[CHIP]* -I *[IDIR]* *[TDIR]*Sketch.S -o *[TDIR]*Sketch.o "},
       {"COMP2", "avr-ld -mavrtiny *[TDIR]*Sketch.o -o *[TDIR]*Sketch.elf "},
       {"TOHEX", tohex},
@@ -128,13 +128,13 @@ class ATTinyCompiler {
       {"SIZE", size},
   };
 
-  private static String[][] build = {
+  private static final String[][] build = {
       {"TOHEX", tohex},
       {"LST", list},   // Note add "-l' for source path and line numbers (Warning: large lines!)
       {"SIZE", size},
   };
 
-  private static Map<String, Integer> fuses = new HashMap<>();
+  private static final Map<String, Integer> fuses = new HashMap<>();
 
   static {
     // Define fuse bits

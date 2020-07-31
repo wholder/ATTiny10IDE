@@ -17,12 +17,12 @@ import java.util.prefs.Preferences;
  */
 
 class CodeEditPane extends JPanel {
-  private JEditorPane         codePane;
-  private JScrollPane         codeScrollpane;
-  private MarkupView          docPane;
-  private CodeChangeListener  codeChangeListener;
-  private DefaultSyntaxKit    synKit;
-  private Preferences         prefs;
+  private final JEditorPane       codePane;
+  private final JScrollPane       codeScrollpane;
+  private final DefaultSyntaxKit  synKit;
+  private final Preferences       prefs;
+  private MarkupView              docPane;
+  private CodeChangeListener      codeChangeListener;
 
 
   CodeEditPane (Preferences prefs) {

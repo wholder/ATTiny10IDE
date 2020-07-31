@@ -17,6 +17,7 @@ If you just want to try out the program, you don't need to download and compile 
  - New Programmer selection dialog replaces menu-based selection and configuration
  - Fixed a regression that prevented Windows version from working properly
  - Fixed linker command so passing string literals as parameters now works (long-standing bug)
+ - Added ability to save HEX file and LST file
  
 ## Help Requested
 
