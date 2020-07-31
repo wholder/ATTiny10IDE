@@ -110,7 +110,7 @@ One essential trick is [using the `PROGMEM` directive](http://www.atmel.com/webd
 The following sections cover advanced topics that assume you have some knowledge of the hardware architecture of the ATTiny series of microconttrollers.  To understand these sections, you should be familiar with the latest version of the [Atmel Datasheet for the ATiny4, ATiny5, ATiny9, ATiny10 8-bit AVR Microcontrollers](http://www.atmel.com/images/atmel-8127-avr-8-bit-microcontroller-attiny4-attiny5-attiny9-attiny10_datasheet.pdf).
 
 #### Automatic Prototype Generation
-If enabled in the Preferences Menu, the Build process will atempt to generate function prototypes for all functions in the main source file before running the compiler.  Note: this code is still experimental and ir currently unable to correctly parse certain C++ constructs.  Use at your own discretion.
+If enabled in the Preferences Menu, the Build process will atempt to generate function prototypes for all functions in the main source file before running the compiler.  Note: this code is still experimental and ir currently unable to correctly parse certain C++ constructs.  This feature is currently enabled by default but, if you experience problems compiling your code, try switching it off.
 
 #### Setting Fuses
 I've made some non standard additions using the `#pragma` directive as a way to provide a way to send additional information to the programmer, such as to program the 3 special bits, of "fuses" in the ATTiny10's Configuration Byte.  These are:
