@@ -49,15 +49,15 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   private static KeyStroke          QUIT_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_Q, cmdMask) ;
   private static KeyStroke          BUILD_KEY = KeyStroke.getKeyStroke(KeyEvent.VK_B, cmdMask) ;
   static Map<String,ChipInfo>       progProtocol = new LinkedHashMap<>();
-  private enum                      Tab {DOC(0), SRC(1), LIST(2), HEX(3), PROG(4), INFO(5); final int num; Tab(int num) {this.num = num;}}
+  private enum                      Tab {DOC(0), SRC(1), LIST(2), HEX(3), PROG(4), INFO(5);
+                                         final int num; Tab(int num) {this.num = num;}}
   private String                    osName = System.getProperty("os.name").toLowerCase();
   private enum                      OpSys {MAC, WIN, LINUX}
   private OpSys                     os;
   private JTabbedPane               tabPane;
-  private JFileChooser              fc = new JFileChooser();
   private CodeEditPane              codePane;
   private MyTextPane                listPane, hexPane, progPane, infoPane;
-  private JMenuItem                 saveMenu;
+  private JMenuItem                 openMenu, saveMenu, saveAsMenu, newMenu;
   private RadioMenu                 targetMenu;
   private String                    tmpDir, tmpExe, avrChip, editFile, exportParms;
   private boolean                   directHex, compiled, codeDirty;
@@ -182,23 +182,49 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
   }
 
   {
-    FileNameExtensionFilter[] filters = {
-      new FileNameExtensionFilter("AVR .c , .cpp or .ino files", "c", "cpp", "ino"),
-      new FileNameExtensionFilter("AVR .asm or .s files", "asm", "s"),
-    };
-    String ext = prefs.get("default.extension", "c");
-    for (FileNameExtensionFilter filter : filters) {
-      fc.addChoosableFileFilter(filter);
-      if (filter.getExtensions()[0].equals(ext)) {
-        fc.setFileFilter(filter);
-      }
-    }
-    fc.setAcceptAllFileFilterUsed(true);
-    fc.setMultiSelectionEnabled(false);
-    fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
     prefs.putBoolean("enable_preprocessing", prefs.getBoolean("enable_preprocessing", false));
     prefs.putBoolean("gen_prototypes", prefs.getBoolean("gen_prototypes", false));
     prefs.putBoolean("developer_features", prefs.getBoolean("developer_features", false));
+  }
+
+  private JFileChooser getFileChooser () {
+    JFileChooser fc = new JFileChooser();
+    String fPath = prefs.get("default.dir", "/");
+    int selIndex = tabPane.getSelectedIndex();
+    if (selIndex == Tab.SRC.num) {
+      FileNameExtensionFilter[] filters = {
+          new FileNameExtensionFilter("AVR .c , .cpp or .ino files", "c", "cpp", "ino"),
+          new FileNameExtensionFilter("AVR .asm or .s files", "asm", "s"),
+          };
+      String ext = prefs.get("default.extension", "c");
+      for (FileNameExtensionFilter filter : filters) {
+        fc.addChoosableFileFilter(filter);
+        if (filter.getExtensions()[0].equals(ext)) {
+          fc.setFileFilter(filter);
+        }
+      }
+    } else if (selIndex == Tab.HEX.num) {
+      FileNameExtensionFilter filter = new FileNameExtensionFilter(".hex files", "hex");
+      fc.addChoosableFileFilter(filter);
+      fc.setFileFilter(filter);
+      int idx = fPath.lastIndexOf('.');
+      if (idx > 0) {
+        fPath = fPath.substring(0, idx + 1) + "hex";
+      }
+    } else if (selIndex == Tab.LIST.num) {
+      FileNameExtensionFilter filter = new FileNameExtensionFilter(".lst files", "lst");
+      fc.addChoosableFileFilter(filter);
+      fc.setFileFilter(filter);
+      int idx = fPath.lastIndexOf('.');
+      if (idx > 0) {
+        fPath = fPath.substring(0, idx + 1) + "lst";
+      }
+    }
+    fc.setSelectedFile(new File(fPath));
+    fc.setAcceptAllFileFilterUsed(true);
+    fc.setMultiSelectionEnabled(false);
+    fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
+    return fc;
   }
 
   private void selectTab (Tab tab) {
@@ -364,8 +390,8 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       }
     });
     fileMenu.addSeparator();
-    fileMenu.add(mItem = new JMenuItem("New"));
-    mItem.addActionListener(e -> {
+    fileMenu.add(newMenu = new JMenuItem("New"));
+    newMenu.addActionListener(e -> {
       if (codePane.getText().length() == 0 || discardChanges()) {
         codePane.setForeground(Color.black);
         codePane.setCode("");
@@ -377,11 +403,11 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
         cFile = null;
       }
     });
-    fileMenu.add(mItem = new JMenuItem("Open"));
-    mItem.setAccelerator(OPEN_KEY);
-    mItem.addActionListener(e -> {
-      fc.setSelectedFile(new File(prefs.get("default.dir", "/")));
-      if (!codeDirty  ||  discardChanges()) {
+    fileMenu.add(openMenu = new JMenuItem("Open"));
+    openMenu.setAccelerator(OPEN_KEY);
+    openMenu.addActionListener(e -> {
+      JFileChooser fc = getFileChooser();
+      if (!codeDirty || discardChanges()) {
         if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
           try {
             File oFile = fc.getSelectedFile();
@@ -427,9 +453,9 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
       Utility.saveFile(cFile, codePane.getText());
       setDirtyIndicator(codeDirty = false);
     });
-    fileMenu.add(mItem = new JMenuItem("Save As..."));
-    mItem.addActionListener(e -> {
-      fc.setSelectedFile(new File(prefs.get("default.dir", "/")));
+    fileMenu.add(saveAsMenu = new JMenuItem("Save As..."));
+    saveAsMenu.addActionListener(e -> {
+      JFileChooser fc = getFileChooser();
       if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
         File sFile = fc.getSelectedFile();
         FileFilter filter = fc.getFileFilter();
@@ -464,7 +490,12 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     editMenu.setEnabled(false);
     menuBar.add(editMenu);
     tabPane.addChangeListener(ev -> {
-      editMenu.setEnabled(tabPane.getSelectedIndex() == Tab.SRC.num);
+      int idx = tabPane.getSelectedIndex();
+      editMenu.setEnabled(idx == Tab.SRC.num);
+      openMenu.setEnabled(idx == Tab.SRC.num);
+      saveMenu.setEnabled(idx == Tab.SRC.num);
+      saveAsMenu.setEnabled(idx == Tab.SRC.num || idx == Tab.HEX.num || idx == Tab.LIST.num);
+      newMenu.setEnabled(idx == Tab.SRC.num);
     });
     // Add "Actions" Menu
     JMenu actions = new JMenu("Actions");

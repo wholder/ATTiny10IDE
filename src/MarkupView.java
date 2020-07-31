@@ -3,6 +3,7 @@ import com.github.rjeschke.txtmark.Processor;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.event.HyperlinkEvent;
+import javax.swing.event.HyperlinkListener;
 import javax.swing.text.*;
 import javax.swing.text.html.HTML;
 import javax.swing.text.html.HTMLEditorKit;
@@ -23,10 +24,10 @@ import java.util.Base64;
 import java.util.prefs.Preferences;
 
 class MarkupView extends JPanel {
-  private JEditorPane       jEditorPane;
-  private ArrayList<String> stack = new ArrayList<>();
-  private String            basePath, currentPage;
-  private String            codeFont;
+  private final JEditorPane           jEditorPane;
+  private final ArrayList<StackItem>  stack = new ArrayList<>();
+  private final String                codeFont;
+  private String                      basePath, currentPage;
 
   {
     String os = System.getProperty("os.name").toLowerCase();
@@ -39,10 +40,20 @@ class MarkupView extends JPanel {
     }
   }
 
+  private static class StackItem {
+    private final String  location;
+    private final Point   position;
+
+    private StackItem (String location, Point position) {
+      this.location = location;
+      this.position = position;
+    }
+  }
+
   class MyImageView extends ImageView {
-    private String  loc;
-    private Image   img;
-    private boolean flatten;
+    private final boolean flatten;
+    private String        loc;
+    private Image         img;
 
     private MyImageView (Element elem) {
       super(elem);
@@ -127,22 +138,32 @@ class MarkupView extends JPanel {
     jEditorPane = new JEditorPane();
     JScrollPane scrollPane = new JScrollPane(jEditorPane);
     JButton back = new JButton("BACK");
-    jEditorPane.addHyperlinkListener(ev -> {
-      if (ev.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
-        String link = ev.getURL().toString();
-        if (link.startsWith("file://")) {
-          link = link.substring(7);
-          stack.add(currentPage);
-          loadMarkup(link);
-          back.setVisible(stack.size() > 0);
-        } else if (link.startsWith("http://") || link.startsWith("https://")) {
-          if (Desktop.isDesktopSupported()) {
-            try {
-              Desktop.getDesktop().browse(new URI(link));
-            } catch (Exception ex) {
-              ex.printStackTrace();
+    jEditorPane.addHyperlinkListener(new HyperlinkListener() {
+      private String tooltip;
+      @Override public void hyperlinkUpdate(HyperlinkEvent ev) {
+        JEditorPane editor = (JEditorPane) ev.getSource();
+        if (ev.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
+          String link = ev.getDescription();
+          if (link.startsWith("http://") || link.startsWith("https://")) {
+            if (Desktop.isDesktopSupported()) {
+              try {
+                Desktop.getDesktop().browse(new URI(link));
+              } catch (Exception ex) {
+                ex.printStackTrace();
+              }
             }
+          } else {
+            Point scrollPosition = scrollPane.getViewport().getViewPosition();
+            stack.add(new StackItem(currentPage, scrollPosition));
+            loadMarkup(link);
+            back.setVisible(stack.size() > 0);
           }
+        } else if (ev.getEventType() == HyperlinkEvent.EventType.ENTERED) {
+          tooltip = editor.getToolTipText();
+          String text = ev.getDescription();
+          editor.setToolTipText(text);
+        } else if (ev.getEventType() == HyperlinkEvent.EventType.EXITED) {
+          editor.setToolTipText(tooltip);
         }
       }
     });
@@ -151,10 +172,10 @@ class MarkupView extends JPanel {
     add(scrollPane, BorderLayout.CENTER);
     back.addActionListener(e -> {
       if (stack.size() > 0) {
-        String prev = stack.remove(stack.size() - 1);
-        loadMarkup(prev);
-        jEditorPane.setCaretPosition(0);
+        StackItem item = stack.remove(stack.size() - 1);
+        loadMarkup(item.location);
         back.setVisible(stack.size() > 0);
+        SwingUtilities.invokeLater(() -> scrollPane.getViewport().setViewPosition(item.position));
       }
     });
     add(back, BorderLayout.NORTH);
@@ -215,6 +236,9 @@ class MarkupView extends JPanel {
     throw new IllegalStateException("MarkupView.getResource() " + file + " not found");
   }
 
+  /*
+   *  Test code for MarkupView Pane
+   */
   public static void main (String[] args) {
     Preferences prefs = Preferences.userRoot().node(MarkupView.class.getName());
     JFrame frame = new JFrame();

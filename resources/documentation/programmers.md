@@ -7,7 +7,7 @@ If you've worked with Arduino™ boards, you'll know that that each board comes 
 In brief, the ATTiny245/445/84 and ATTiny25/45/85 devices use a protocol based on the SPI interface to program the chips.  This requires using the MISO, MISO and SCK pins, as well as the RESET pin to control the device during programming.  If you want to learn more about this protocol, check out [Microchip/Atmel's Application Note
 AVR910](http://ww1.microchip.com/downloads/en/appnotes/atmel-0943-in-system-programming_applicationnote_avr910.pdf) for more details.
 
-Because of it's limited pin count, the ATTiny4/5/9/10 devices use a different protocol called the Tiny Programming Interface (TPI).  This protocol uses the TPIDATA, TPICLK and RESET pins to control the device during programming.  If you want to learn more about this protocol, check out [Microchip/Atmel's Application Note AVR918](http://ww1.microchip.com/downloads/en/AppNotes/doc8373.pdf) for more details.  Also, ATTiny10IDE is designed to use an Arduino Sketch that programs it to function as a TPI Programmer.  See the section [Programming ATTiny10 Chips](file://tiny10/programming.md) for more details.
+Because of it's limited pin count, the ATTiny4/5/9/10 devices use a different protocol called the Tiny Programming Interface (TPI).  This protocol uses the TPIDATA, TPICLK and RESET pins to control the device during programming.  If you want to learn more about this protocol, check out [Microchip/Atmel's Application Note AVR918](http://ww1.microchip.com/downloads/en/AppNotes/doc8373.pdf) for more details.  Also, ATTiny10IDE is designed to use an Arduino Sketch that programs it to function as a TPI Programmer.  See the section [Programming ATTiny10 Chips](tiny10/programming.md) for more details.
 
 ### 5V Power and Ground and In-Circuit Programming
 
@@ -53,4 +53,4 @@ Some vendors, as shown below, have even packaged the USBTiny design in a case th
 
 ### Using an Arduino as an In-Circuit Programmer
 
-Another way to program an ATTiny84 is to use an ATmega328P-based Arduino (Arduino UNO, for example) as a programmer by uploading a special Sketch called ArduinoISP, which is included with the Arduino IDE.  For more details on how to do this, see the more in-depth instructions on programming included in the sections [Programming ATTiny24/44/84 Chips](file://tiny84/programming.md) or [Programming ATTiny25/45/85 Chips](file://tiny85/programming.md)
+Another way to program an ATTiny84 is to use an ATmega328P-based Arduino (Arduino UNO, for example) as a programmer by uploading a special Sketch called ArduinoISP, which is included with the Arduino IDE.  For more details on how to do this, see the more in-depth instructions on programming included in the sections [Programming ATTiny24/44/84 Chips](tiny84/programming.md) or [Programming ATTiny25/45/85 Chips](tiny85/programming.md)
