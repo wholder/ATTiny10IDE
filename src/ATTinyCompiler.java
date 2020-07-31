@@ -304,9 +304,9 @@ class ATTinyCompiler {
               }
             }
             // Generate prototypes
-            String protos = CPP14ProtoGen.getPrototypes(buf.toString());
             if (genProto) {
               // Copy protos and source into Sketch.cpp and continue build
+              String protos = CPP14ProtoGen.getPrototypes(buf.toString());
               lineNum = 0;
               buf = new StringBuilder();
               for (String line : src.split("\n")) {
