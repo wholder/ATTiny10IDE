@@ -10,6 +10,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 
 import java.util.*;
@@ -19,6 +20,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
 
 import javax.swing.*;
 import javax.swing.event.HyperlinkEvent;
@@ -1537,60 +1539,55 @@ public class ATTinyC extends JFrame implements JSSCPort.RXEvent {
     public void run () {
       try {
         File dst = new File(tmpExe);
-        if (!dst.exists()) {
-          dst.mkdirs();
+        //Utility.removeFiles(dst);           // causes comppile to fail? (need to investigate)
+        if (!dst.exists() && !dst.mkdirs()) {
+          throw new IllegalStateException("Unable to create directory: " + dst);
         }
-        infoPane.append("srcZip: " + srcZip + "\n");
-        ZipFile zip = null;
+        ZipInputStream zipStream = null;
         try {
-          Path file = Files.createTempFile(null, ".zip");
-          InputStream stream = ATTinyC.class.getClassLoader().getResourceAsStream(srcZip);
-          if (stream != null) {
-            Files.copy(stream, file, StandardCopyOption.REPLACE_EXISTING);
-            File srcFile = file.toFile();
-            srcFile.deleteOnExit();
-            zip = new ZipFile(srcFile);
-            int entryCount = 0, lastEntryCount = 0;
-            progress.setMaximum(zip.size());
-            Enumeration<? extends ZipEntry> entries = zip.entries();
-            while (entries.hasMoreElements()) {
-              ZipEntry entry = entries.nextElement();
-              entryCount++;
-              if (entryCount - lastEntryCount > 100) {
-                progress.setValue(lastEntryCount = entryCount);
-              }
-              String src = entry.getName();
-              if (src.contains("MACOSX")) {
-                continue;
-              }
-              File dstFile = new File(dst, src);
-              File dstDir = dstFile.getParentFile();
-              if (!dstDir.exists()) {
-                dstDir.mkdirs();
-              }
-              if (entry.isDirectory()) {
-                dstFile.mkdirs();
-              } else {
-                try (ReadableByteChannel srcChan = Channels.newChannel(zip.getInputStream(entry));
-                     FileChannel dstChan = new FileOutputStream(dstFile).getChannel()) {
-                  dstChan.transferFrom(srcChan, 0, entry.getSize());
-                }
-                // Must set permissions after file is written or it doesn't take...
-                if (!dstFile.getName().contains(".")) {
-                  dstFile.setExecutable(true);
-                }
+          InputStream in = ATTinyC.class.getResourceAsStream(srcZip);
+          int fileSize = in.available();
+          zipStream = new ZipInputStream(in);
+          byte[] buffer = new byte[2048];
+          Path outDir = Paths.get(dst.getPath());
+          int bytesRead = 0;
+          progress.setMaximum(100);
+          ZipEntry entry;
+          while ((entry = zipStream.getNextEntry()) != null) {
+            String src = entry.getName();
+            Path filePath = outDir.resolve(src);
+            File dstDir = filePath.toFile().getParentFile();
+            if (!dstDir.exists() && !dstDir.mkdirs()) {
+              throw new IllegalStateException("Unable to create directory: " + dstDir);
+            }
+            File dstFile = filePath.toFile();
+            FileOutputStream fos = new FileOutputStream(dstFile);
+            BufferedOutputStream bos = new BufferedOutputStream(fos, buffer.length);
+            int len;
+            while ((len = zipStream.read(buffer)) > 0) {
+              bos.write(buffer, 0, len);
+              bytesRead += len;
+            }
+            bos.close();
+            fos.close();
+            // Must set permissions after file is written or it doesn't take...
+            String file = dstFile.getName();
+            if (!file.contains(".") || file.toLowerCase().endsWith(".exe")) {
+              if (!dstFile.setExecutable(true)) {
+                showErrorDialog("Unable to set permissions for " + dstFile);
               }
             }
-          } else {
-            showErrorDialog("Unable to open " + srcZip + file);
+            float percent = ((float) bytesRead / fileSize) * 100;
+            progress.setValue((int) percent);
           }
         } finally {
-          if (zip != null) {
-            zip.close();
+          if (zipStream != null) {
+            zipStream.close();
           }
         }
       } catch (Exception ex) {
         ex.printStackTrace();
+        showErrorDialog("ToolchainLoader.run() exception " + ex.getMessage());
       }
       progress.close();
     }

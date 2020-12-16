@@ -168,7 +168,7 @@ class Utility {
     Stream.of(proc.getErrorStream(), proc.getInputStream()).parallel().map((InputStream isForOutput) -> {
       StringBuilder output = new StringBuilder();
       try (
-          BufferedReader br = new BufferedReader(new InputStreamReader(isForOutput))) {
+        BufferedReader br = new BufferedReader(new InputStreamReader(isForOutput))) {
         String line;
         while ((line = br.readLine()) != null) {
           pane.append(line);
